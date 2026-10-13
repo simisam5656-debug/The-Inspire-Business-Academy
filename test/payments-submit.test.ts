@@ -540,7 +540,7 @@ describe('Payment Submission API Tests (api/payments/submit.ts)', () => {
       headers: {},
       body: {
         ...validPayload,
-        screenshotPath: 'guest/1728560000_receipt.jpg',
+        screenshotPath: 'proofs/2026/10/a1b2c3d4-e5f6-4789-abcd-ef0123456789.jpg',
       },
     };
     const res = createMockRes();
@@ -554,7 +554,7 @@ describe('Payment Submission API Tests (api/payments/submit.ts)', () => {
     assert.ok(savedPay);
     // Crucial check: status MUST be 'pending', NEVER 'verified'
     assert.equal(savedPay.payment_status, 'pending');
-    assert.equal(savedPay.screenshot_path, 'guest/1728560000_receipt.jpg');
+    assert.equal(savedPay.screenshot_path, 'proofs/2026/10/a1b2c3d4-e5f6-4789-abcd-ef0123456789.jpg');
   });
 
   // Case 8: Repeated request does not silently create duplicate payments
@@ -629,5 +629,51 @@ describe('Payment Submission API Tests (api/payments/submit.ts)', () => {
     assert.equal(res.statusCode, 400);
     assert.equal(res.body.ok, false);
     assert.match(res.body.error, /Bank Transfer payment method is currently disabled/i);
+  });
+
+  test('10. Invalid screenshotPath format is rejected with HTTP 400', async () => {
+    const mockDb = createMockSubmitSupabase();
+    const req = {
+      method: 'POST',
+      headers: {},
+      body: {
+        ...validPayload,
+        screenshotPath: 'guest/insecure_path.jpg',
+      },
+    };
+    const res = createMockRes();
+
+    await handler(req, res, mockDb);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body.ok, false);
+    assert.match(res.body.error, /screenshot proof path/i);
+  });
+
+  test('11. Database insert failure with AI_DEBUG returns code and detail', async () => {
+    const oldDebug = process.env.AI_DEBUG;
+    process.env.AI_DEBUG = 'true';
+    try {
+      const mockDb = createMockSubmitSupabase({ failAdmissionInsert: true });
+      const req = {
+        method: 'POST',
+        headers: {},
+        body: validPayload,
+      };
+      const res = createMockRes();
+
+      await handler(req, res, mockDb);
+
+      assert.equal(res.statusCode, 500);
+      assert.equal(res.body.ok, false);
+      assert.ok(res.body.code);
+      assert.ok(res.body.detail);
+    } finally {
+      if (oldDebug !== undefined) {
+        process.env.AI_DEBUG = oldDebug;
+      } else {
+        delete process.env.AI_DEBUG;
+      }
+    }
   });
 });

@@ -1834,3 +1834,161 @@ $$;
 
 REVOKE ALL ON FUNCTION public.increment_coupon_usage(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.increment_coupon_usage(UUID) TO anon, authenticated;
+
+
+-- ==============================================================================
+-- Migration 20261013100000: Online payments access columns and proof size limit
+-- ==============================================================================
+ALTER TABLE public.online_payments 
+    ADD COLUMN IF NOT EXISTS request_type TEXT NOT NULL DEFAULT 'registration',
+    ADD COLUMN IF NOT EXISTS selected_course_ids UUID[],
+    ADD COLUMN IF NOT EXISTS access_status TEXT NOT NULL DEFAULT 'pending',
+    ADD COLUMN IF NOT EXISTS access_reviewed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS access_reviewed_at TIMESTAMPTZ;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'online_payments_request_type_check'
+    ) THEN
+        ALTER TABLE public.online_payments 
+            ADD CONSTRAINT online_payments_request_type_check 
+            CHECK (request_type IN ('registration', 'additional_course', 'package'));
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'online_payments_access_status_check'
+    ) THEN
+        ALTER TABLE public.online_payments 
+            ADD CONSTRAINT online_payments_access_status_check 
+            CHECK (access_status IN ('pending', 'granted', 'denied'));
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_online_payments_access_status ON public.online_payments(access_status);
+CREATE INDEX IF NOT EXISTS idx_online_payments_access_reviewed_by ON public.online_payments(access_reviewed_by);
+
+UPDATE storage.buckets 
+SET file_size_limit = 5242880, 
+    allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] 
+WHERE id = 'payment-proofs';
+
+-- ==============================================================================
+-- Migration 20261013100100: Super admin insert policy for site settings public
+-- ==============================================================================
+DROP POLICY IF EXISTS "Super admin can insert site settings" ON public.site_settings_public;
+CREATE POLICY "Super admin can insert site settings" 
+ON public.site_settings_public 
+FOR INSERT TO authenticated 
+WITH CHECK ((select public.is_super_admin()));
+
+-- ==============================================================================
+-- Migration 20261013100200: PRD v2 Website additions
+-- ==============================================================================
+ALTER TABLE public.courses
+    ADD COLUMN IF NOT EXISTS image_url TEXT,
+    ADD COLUMN IF NOT EXISTS is_most_popular BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS online_price NUMERIC(10, 2),
+    ADD COLUMN IF NOT EXISTS online_duration_months INT DEFAULT 6,
+    ADD COLUMN IF NOT EXISTS available_for_physical BOOLEAN NOT NULL DEFAULT true,
+    ADD COLUMN IF NOT EXISTS available_for_online BOOLEAN NOT NULL DEFAULT true;
+
+UPDATE public.courses SET image_url = thumbnail_url WHERE image_url IS NULL AND thumbnail_url IS NOT NULL;
+
+ALTER TABLE public.gallery_items
+    ADD COLUMN IF NOT EXISTS media_type TEXT NOT NULL DEFAULT 'image',
+    ADD COLUMN IF NOT EXISTS video_url TEXT;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'gallery_items_media_type_check'
+    ) THEN
+        ALTER TABLE public.gallery_items 
+            ADD CONSTRAINT gallery_items_media_type_check 
+            CHECK (media_type IN ('image', 'video'));
+    END IF;
+END $$;
+
+ALTER TABLE public.site_settings_public
+    ADD COLUMN IF NOT EXISTS logo_url TEXT,
+    ADD COLUMN IF NOT EXISTS hero_image_1 TEXT,
+    ADD COLUMN IF NOT EXISTS hero_image_2 TEXT,
+    ADD COLUMN IF NOT EXISTS hero_image_3 TEXT,
+    ADD COLUMN IF NOT EXISTS home_class_image_url TEXT,
+    ADD COLUMN IF NOT EXISTS home_teacher_image_url TEXT,
+    ADD COLUMN IF NOT EXISTS hero_package_image_url TEXT,
+    ADD COLUMN IF NOT EXISTS founder_image_url TEXT,
+    ADD COLUMN IF NOT EXISTS founder_name TEXT DEFAULT 'Adeel Bhatti',
+    ADD COLUMN IF NOT EXISTS why_choose_images JSONB NOT NULL DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS courses_hero_images JSONB NOT NULL DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS about_left_image_url TEXT,
+    ADD COLUMN IF NOT EXISTS about_right_image_url TEXT,
+    ADD COLUMN IF NOT EXISTS intro_video_url TEXT,
+    ADD COLUMN IF NOT EXISTS maps_embed_url TEXT,
+    ADD COLUMN IF NOT EXISTS phone TEXT,
+    ADD COLUMN IF NOT EXISTS whatsapp TEXT,
+    ADD COLUMN IF NOT EXISTS contact_email TEXT,
+    ADD COLUMN IF NOT EXISTS social_youtube TEXT,
+    ADD COLUMN IF NOT EXISTS social_facebook TEXT,
+    ADD COLUMN IF NOT EXISTS social_instagram TEXT,
+    ADD COLUMN IF NOT EXISTS payment_jazzcash_title TEXT,
+    ADD COLUMN IF NOT EXISTS payment_jazzcash_number TEXT,
+    ADD COLUMN IF NOT EXISTS payment_jazzcash_enabled BOOLEAN DEFAULT true,
+    ADD COLUMN IF NOT EXISTS payment_easypaisa_title TEXT,
+    ADD COLUMN IF NOT EXISTS payment_easypaisa_number TEXT,
+    ADD COLUMN IF NOT EXISTS payment_easypaisa_enabled BOOLEAN DEFAULT true,
+    ADD COLUMN IF NOT EXISTS payment_bank_name TEXT,
+    ADD COLUMN IF NOT EXISTS payment_bank_account_title TEXT,
+    ADD COLUMN IF NOT EXISTS payment_bank_account_number TEXT,
+    ADD COLUMN IF NOT EXISTS payment_bank_iban TEXT,
+    ADD COLUMN IF NOT EXISTS payment_bank_enabled BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS opening_time TEXT DEFAULT '09:00',
+    ADD COLUMN IF NOT EXISTS closing_time TEXT DEFAULT '19:00',
+    ADD COLUMN IF NOT EXISTS working_days_text TEXT DEFAULT 'Monday - Friday',
+    ADD COLUMN IF NOT EXISTS physical_monthly_fee NUMERIC(10,2) NOT NULL DEFAULT 5040,
+    ADD COLUMN IF NOT EXISTS physical_total_fee NUMERIC(10,2) NOT NULL DEFAULT 30240,
+    ADD COLUMN IF NOT EXISTS physical_course_count INT NOT NULL DEFAULT 10,
+    ADD COLUMN IF NOT EXISTS physical_admission_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS online_course_price NUMERIC(10,2) NOT NULL DEFAULT 5000;
+
+-- ==============================================================================
+-- Migration 20261013100300: Revoke execute on internal trigger functions
+-- ==============================================================================
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'handle_new_user') THEN
+        REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'check_max_managers_limit') THEN
+        REVOKE EXECUTE ON FUNCTION public.check_max_managers_limit() FROM PUBLIC, anon, authenticated;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_testimonial_approval') THEN
+        REVOKE EXECUTE ON FUNCTION public.sync_testimonial_approval() FROM PUBLIC, anon, authenticated;
+    END IF;
+END $$;
+
+-- ==============================================================================
+-- Migration 20261013100400: Final hardening for quiz attempts and contact messages
+-- ==============================================================================
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can submit contact messages" ON public.contact_messages;
+CREATE POLICY "Public can submit contact messages" 
+ON public.contact_messages 
+FOR INSERT TO anon, authenticated
+WITH CHECK (
+    is_read = false 
+    AND reply_note IS NULL 
+    AND replied_at IS NULL 
+    AND handled_by IS NULL
+    AND char_length(message) <= 3000
+    AND char_length(full_name) <= 100
+);
+
+DROP POLICY IF EXISTS "Staff can read and manage contact messages" ON public.contact_messages;
+CREATE POLICY "Staff can read and manage contact messages" 
+ON public.contact_messages 
+FOR ALL TO authenticated 
+USING (public.is_staff()) 
+WITH CHECK (public.is_staff());

@@ -7,6 +7,7 @@ import {
   CouponValidationResult,
 } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { compressPaymentProof } from '../utils/imageCompressor';
 
 export interface SubmitPaymentPayload {
   fullName: string;
@@ -78,38 +79,78 @@ export const PaymentService = {
   },
 
   /**
-   * Upload screenshot to private storage 'payment-proofs'
+   * Upload screenshot to private storage 'payment-proofs' via secure pre-signed upload URL
    */
   async uploadPaymentProof(
-    file: File,
-    userId: string,
-    transactionId: string
+    file: File
   ): Promise<{ path: string | null; error: string | null }> {
-    if (!isSupabaseConfigured || !supabase) {
-      // In offline / preview mode without storage credentials, store pseudo identifier
-      const fallbackPath = `${userId || 'guest'}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      return { path: fallbackPath, error: null };
-    }
-
     try {
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const cleanTx = transactionId.replace(/[^a-zA-Z0-9]/g, '');
-      const filePath = `${userId || 'guest'}/${Date.now()}_${cleanTx}.${fileExt}`;
+      let fileToUpload = file;
+      // 1. If image, compress client-side to <= 1 MB (1024 * 1024)
+      if (file.type.startsWith('image/')) {
+        try {
+          const comp = await compressPaymentProof(file, 1024 * 1024);
+          fileToUpload = comp.file;
+        } catch (compErr) {
+          console.warn('Client image compression warning, proceeding with original:', compErr);
+        }
+      }
+
+      if (fileToUpload.size > 5 * 1024 * 1024) {
+        return {
+          path: null,
+          error: 'File size 5 MB se zyada hai. Baraye meharbani chhota file chunein (Maximum 5 MB allowed).',
+        };
+      }
+
+      // 2. Request signed upload destination from server
+      const urlRes = await fetch('/api/payments/proof-upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: fileToUpload.name,
+          contentType: fileToUpload.type,
+          fileSize: fileToUpload.size,
+        }),
+      });
+
+      const urlData = await urlRes.json();
+      if (!urlRes.ok || !urlData.ok || !urlData.path || !urlData.token) {
+        return {
+          path: null,
+          error:
+            urlData?.error ||
+            'Payment receipt upload destination initialize nahi ho saki. Please check your connection.',
+        };
+      }
+
+      // 3. Upload to private storage bucket using signed upload url
+      if (!supabase) {
+        return {
+          path: null,
+          error: 'Storage client unavailable. Please refresh and try again.',
+        };
+      }
 
       const { data, error } = await supabase.storage
         .from('payment-proofs')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-        });
+        .uploadToSignedUrl(urlData.path, urlData.token, fileToUpload);
 
-      if (error) {
-        return { path: null, error: error.message };
+      if (error || !data) {
+        return {
+          path: null,
+          error:
+            error?.message ||
+            'Payment receipt upload failed. Screenshot dobara upload karein (JPEG, PNG, WEBP, PDF).',
+        };
       }
 
-      return { path: data.path, error: null };
+      return { path: urlData.path, error: null };
     } catch (err: any) {
-      return { path: null, error: err.message || 'Storage upload failed' };
+      return {
+        path: null,
+        error: err.message || 'Payment screenshot upload failed due to network error.',
+      };
     }
   },
 
@@ -124,20 +165,25 @@ export const PaymentService = {
     error?: string;
     duplicateTx?: boolean;
   }> {
-    let uploadedScreenshotPath: string | undefined = undefined;
-
-    // 1. Upload screenshot if provided
-    if (payload.screenshotFile) {
-      const uploadRes = await this.uploadPaymentProof(
-        payload.screenshotFile,
-        payload.userId || 'guest',
-        payload.transactionId
-      );
-      if (uploadRes.error) {
-        console.warn('Screenshot upload warning:', uploadRes.error);
-      }
-      uploadedScreenshotPath = uploadRes.path || undefined;
+    // 1. Mandatory screenshot proof check
+    if (!payload.screenshotFile) {
+      return {
+        ok: false,
+        error: 'Payment receipt / screenshot proof is required. Baraye meharbani payment proof upload karein.',
+      };
     }
+
+    const uploadRes = await this.uploadPaymentProof(payload.screenshotFile);
+    if (uploadRes.error || !uploadRes.path) {
+      return {
+        ok: false,
+        error:
+          uploadRes.error ||
+          'Payment receipt upload fail ho gayi. Receipt ke baghair submission mumkin nahi hai.',
+      };
+    }
+
+    const uploadedScreenshotPath = uploadRes.path;
 
     // 2. Submit payment and registration via server API
     try {
@@ -202,68 +248,68 @@ export const PaymentService = {
    */
   async getOnlinePayments(statusFilter?: PaymentStatus | 'all'): Promise<OnlinePaymentRecord[]> {
     if (isSupabaseConfigured && supabase) {
-      try {
-        let query = supabase
-          .from('online_payments')
-          .select(`
-            *,
-            admissions (
-              full_name,
-              email,
-              phone
-            )
-          `)
-          .order('created_at', { ascending: false });
+      let query = supabase
+        .from('online_payments')
+        .select(`
+          *,
+          admissions (
+            full_name,
+            email,
+            phone
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-        if (statusFilter && statusFilter !== 'all') {
-          query = query.eq('payment_status', statusFilter);
-        }
+      if (statusFilter && statusFilter !== 'all') {
+        query = query.eq('payment_status', statusFilter);
+      }
 
-        const { data, error } = await query;
-        if (!error && data) {
-          return data.map((d: any) => ({
-            id: d.id,
-            referenceNumber: d.reference_number,
-            admissionId: d.admission_id,
-            userId: d.user_id,
-            userName: d.admissions?.full_name || d.account_sender_name || 'Student',
-            userEmail: d.admissions?.email || '',
-            userPhone: d.admissions?.phone || d.account_sender_number || '',
-            courseId: d.course_id,
-            packageId: d.package_id,
-            courseSlug: d.course_slug,
-            courseTitle: d.course_title,
-            paymentMethod: d.payment_method,
-            transactionId: d.transaction_id,
-            accountSenderName: d.account_sender_name,
-            accountSenderNumber: d.account_sender_number,
-            screenshotPath: d.screenshot_path,
-            basePrice: Number(d.base_price || 0),
-            discountAmount: Number(d.discount_amount || 0),
-            couponId: d.coupon_id,
-            couponCode: d.coupon_code,
-            offerId: d.offer_id,
-            offerTitle: d.offer_title,
-            finalAmount: Number(d.final_amount || 0),
-            paymentStatus: d.payment_status as PaymentStatus,
-            rejectionReason: d.rejection_reason,
-            verifiedBy: d.verified_by,
-            verifiedAt: d.verified_at,
-            requestType: d.request_type,
-            selectedCourseIds: d.selected_course_ids,
-            accessStatus: d.access_status,
-            accessReviewedBy: d.access_reviewed_by,
-            accessReviewedAt: d.access_reviewed_at,
-            createdAt: d.created_at,
-            updatedAt: d.updated_at,
-          }));
-        }
-      } catch (err) {
-        console.warn('Could not query payments from Supabase:', err);
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error querying online payments from Supabase:', error);
+        throw new Error(error.message || 'Failed to load online payments');
+      }
+
+      if (data) {
+        return data.map((d: any) => ({
+          id: d.id,
+          referenceNumber: d.reference_number,
+          admissionId: d.admission_id,
+          userId: d.user_id,
+          userName: d.admissions?.full_name || d.account_sender_name || 'Student',
+          userEmail: d.admissions?.email || '',
+          userPhone: d.admissions?.phone || d.account_sender_number || '',
+          courseId: d.course_id,
+          packageId: d.package_id,
+          courseSlug: d.course_slug,
+          courseTitle: d.course_title,
+          paymentMethod: d.payment_method,
+          transactionId: d.transaction_id,
+          accountSenderName: d.account_sender_name,
+          accountSenderNumber: d.account_sender_number,
+          screenshotPath: d.screenshot_path,
+          basePrice: Number(d.base_price || 0),
+          discountAmount: Number(d.discount_amount || 0),
+          couponId: d.coupon_id,
+          couponCode: d.coupon_code,
+          offerId: d.offer_id,
+          offerTitle: d.offer_title,
+          finalAmount: Number(d.final_amount || 0),
+          paymentStatus: d.payment_status as PaymentStatus,
+          rejectionReason: d.rejection_reason,
+          verifiedBy: d.verified_by,
+          verifiedAt: d.verified_at,
+          requestType: d.request_type,
+          selectedCourseIds: d.selected_course_ids,
+          accessStatus: d.access_status,
+          accessReviewedBy: d.access_reviewed_by,
+          accessReviewedAt: d.access_reviewed_at,
+          createdAt: d.created_at,
+          updatedAt: d.updated_at,
+        }));
       }
     }
 
-    // Fallback mock payments for UI preview if DB is empty
     return [];
   },
 
@@ -274,12 +320,35 @@ export const PaymentService = {
     if (!userId) return [];
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', userId)
+          .maybeSingle();
+
+        const userEmail = profile?.email;
+        let admIds: string[] = [];
+
+        if (userEmail) {
+          const { data: admissionsData } = await supabase
+            .from('admissions')
+            .select('id')
+            .or(`user_id.eq.${userId},email.ilike.${userEmail}`);
+          admIds = (admissionsData || []).map((a: any) => a.id);
+        }
+
+        let query = supabase
           .from('online_payments')
           .select('*')
-          .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
+        if (admIds.length > 0) {
+          query = query.or(`user_id.eq.${userId},admission_id.in.(${admIds.join(',')})`);
+        } else {
+          query = query.eq('user_id', userId);
+        }
+
+        const { data, error } = await query;
         if (!error && data) {
           return data.map((d: any) => ({
             id: d.id,

@@ -85,6 +85,16 @@ export default async function handler(req: any, res: any, dbClient?: any) {
       return res.status(400).json({ ok: false, error: 'Valid Transaction ID / TID is required.' });
     }
 
+    const PROOF_PATH_REGEX = /^proofs\/\d{4}\/\d{2}\/[0-9a-f-]+\.(jpg|jpeg|png|webp|pdf)$/;
+    if (screenshotPath) {
+      if (typeof screenshotPath !== 'string' || !PROOF_PATH_REGEX.test(screenshotPath.trim())) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Valid payment screenshot proof path is required in format proofs/YYYY/MM/uuid.ext.',
+        });
+      }
+    }
+
     const cleanTxId = transactionId.trim().toUpperCase();
     const normalizedPhone = normalizePakistaniPhone(phone);
 
@@ -263,9 +273,15 @@ export default async function handler(req: any, res: any, dbClient?: any) {
       .single();
 
     if (admErr || !adm || !adm.id) {
+      const errCode = admErr?.code || 'ADM_INSERT_ERROR';
+      const errMsg = admErr?.message || 'Database error inserting admission';
+      console.error(`[Admissions DB Insert Error] code=${errCode} msg=${errMsg}`);
+      const isDebug = getEnv(req, 'AI_DEBUG') === 'true';
       return res.status(500).json({
         ok: false,
         error: 'Failed to record admission in database.',
+        code: errCode,
+        ...(isDebug ? { detail: errMsg } : {}),
       });
     }
 
@@ -316,16 +332,25 @@ export default async function handler(req: any, res: any, dbClient?: any) {
         console.error('Failed to cleanup orphan admission on payment failure:', cleanupErr);
       }
 
+      const errCode = payErr?.code || 'PAY_INSERT_ERROR';
+      const errMsg = payErr?.message || 'Database error inserting payment';
+      console.error(`[Online Payments DB Insert Error] code=${errCode} msg=${errMsg}`);
+      const isDebug = getEnv(req, 'AI_DEBUG') === 'true';
+
       if (payErr?.code === '23505') {
         return res.status(409).json({
           ok: false,
           error: 'Ye Transaction ID pehle use ho chuki hai. Please apni payment details verify karein.',
+          code: payErr.code,
           duplicateTx: true,
+          ...(isDebug ? { detail: errMsg } : {}),
         });
       }
       return res.status(500).json({
         ok: false,
         error: 'Failed to record payment in database.',
+        code: errCode,
+        ...(isDebug ? { detail: errMsg } : {}),
       });
     }
 
