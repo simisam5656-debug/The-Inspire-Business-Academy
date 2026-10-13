@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-royal-blue: #1F3FBF;
+    --color-deep-navy: #0F1F5C;
+    --color-accent-yellow: #FFC20E;
+    --color-light-bg: #F2F5FF;
+    --color-white: #FFFFFF;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: #F2F5FF;
+    color: #0F1F5C;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Accessibility: Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Academy Primary & Secondary Button utilities */
+.btn-primary {
+  background-color: #FFC20E;
+  color: #0F1F5C;
+  font-weight: 700;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease-in-out, transform 0.1s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(15, 31, 92, 0.1);
+}
+
+.btn-primary:hover {
+  background-color: #E5AD07;
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid #0F1F5C;
+  outline-offset: 2px;
+}
+
+.btn-secondary {
+  background-color: #1F3FBF;
+  color: #FFFFFF;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-secondary:hover {
+  background-color: #18339E;
+}
+
+.btn-secondary:focus-visible {
+  outline: 2px solid #FFC20E;
+  outline-offset: 2px;
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: #1F3FBF;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.5rem;
+  border: 1.5px solid #1F3FBF;
+  transition: all 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-outline:hover {
+  background-color: #1F3FBF;
+  color: #FFFFFF;
+}
+
+.font-display {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+
+/* Print Styles for Academy Fee Receipts & Reports */
+@media print {
+  body {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+  }
+
+  .receipt-print-area {
+    border: 2px solid #0F1F5C !important;
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 1.5rem !important;
+  }
+}
