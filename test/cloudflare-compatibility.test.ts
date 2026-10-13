@@ -536,9 +536,11 @@ describe('Prompt 10 — Cloudflare Pages Functions Adapter & Runtime Verificatio
       assert.ok(fs.existsSync(catchallPath), 'Missing Cloudflare catchall 404 handler');
     });
 
-    test('4.3. public/_routes.json and public/_headers are configured for Cloudflare Pages SPA deployment with _redirects deleted', () => {
-      // _redirects must be completely deleted to prevent routing loops on Cloudflare Pages
-      assert.equal(fs.existsSync(path.resolve(process.cwd(), 'public/_redirects')), false, 'public/_redirects must not exist');
+    test('4.3. public/_routes.json, public/_redirects, and public/_headers are configured for Cloudflare Pages SPA deployment', () => {
+      // _redirects must contain standard SPA fallback rule
+      assert.equal(fs.existsSync(path.resolve(process.cwd(), 'public/_redirects')), true, 'public/_redirects must exist');
+      const redirectsContent = fs.readFileSync(path.resolve(process.cwd(), 'public/_redirects'), 'utf-8').trim();
+      assert.equal(redirectsContent, '/* /index.html 200');
 
       // Top-level 404.html must not exist so Cloudflare Pages automatically serves index.html for SPA routes
       assert.equal(fs.existsSync(path.resolve(process.cwd(), 'public/404.html')), false, 'public/404.html must not exist');

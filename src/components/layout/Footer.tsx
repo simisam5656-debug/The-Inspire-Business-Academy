@@ -123,12 +123,12 @@ export const Footer: React.FC = () => {
               <div className="flex items-center gap-2.5">
                 <Phone className="w-4 h-4 text-[#FFC20E] shrink-0" />
                 <a
-                  href={`https://wa.me/92${whatsapp.replace(/[^0-9]/g, '').slice(1)}`}
+                  href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, '').startsWith('0') ? '92' + whatsapp.replace(/[^0-9]/g, '').slice(1) : whatsapp.replace(/[^0-9]/g, '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-white hover:text-[#FFC20E] transition-colors"
                 >
-                  {phone} (WhatsApp)
+                  {whatsapp} (WhatsApp){phone && phone !== whatsapp ? ` / ${phone}` : ''}
                 </a>
               </div>
 

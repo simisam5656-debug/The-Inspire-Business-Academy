@@ -67,11 +67,11 @@ export const ContactPreviewSection: React.FC = () => {
               {isRoman ? 'Admissions aur sawalat ke liye' : 'Admissions & quick inquiries'}
             </p>
             <p className="text-base font-black text-[#1F3FBF] font-display mt-3">
-              {phone}
+              {whatsapp}
             </p>
             <div className="mt-4">
               <a
-                href={`https://wa.me/92${whatsapp.replace(/[^0-9]/g, '').slice(1)}`}
+                href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, '').startsWith('0') ? '92' + whatsapp.replace(/[^0-9]/g, '').slice(1) : whatsapp.replace(/[^0-9]/g, '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full block"

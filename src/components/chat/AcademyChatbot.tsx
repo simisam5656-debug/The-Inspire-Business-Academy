@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { MessageSquare, X, Send, Bot, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
 import { useTranslation } from '../../i18n';
+import { CmsService } from '../../services/cmsService';
+import { siteConfig } from '../../config/site';
 
 interface Message {
   id: string;
@@ -33,6 +35,7 @@ export const AcademyChatbot: React.FC = () => {
 
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [whatsappHelpline, setWhatsappHelpline] = useState(siteConfig.whatsapp);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -48,6 +51,14 @@ export const AcademyChatbot: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    CmsService.getSiteSettings()
+      .then((s) => {
+        if (s?.whatsapp) setWhatsappHelpline(s.whatsapp);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -103,11 +114,9 @@ export const AcademyChatbot: React.FC = () => {
             ? 'Hamari AI helpline filwaqt masroof hai. Baraye meharbani academy WhatsApp helpline par rabta karein.'
             : 'Our AI guide is temporarily unavailable. Please reach out directly to our admissions team on WhatsApp.');
 
-        console.warn('[AcademyChatbot Assistant Note]', {
-          status: res.status,
-          error: data.error,
-          correlationId: data.correlationId,
-        });
+        console.warn(
+          `[AcademyChatbot Assistant Note] ${data.error ? String(data.error) : 'Fallback response displayed'}`
+        );
 
         const assistantFallbackMessage: Message = {
           id: `ast_${Date.now()}`,
@@ -123,13 +132,13 @@ export const AcademyChatbot: React.FC = () => {
       const assistantMessage: Message = {
         id: `ast_${Date.now()}`,
         role: 'assistant',
-        content: data.reply || 'Apologies, I could not generate a response.',
+        content: data.reply || data.friendlyReply || 'Apologies, I could not generate a response.',
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err: any) {
-      console.warn('[AcademyChatbot Connection Note]', err?.message);
+      console.warn(`[AcademyChatbot Connection Note] ${err?.message || 'Network error'}`);
       const friendlyMsg = isRoman
         ? 'Rabtay mein waqti rukawat hai. Baraye meharbani thori der baad koshish karein ya WhatsApp helpline se rabta karein.'
         : 'Connection interrupted. Please try again shortly or contact our admissions helpline via WhatsApp.';
@@ -312,7 +321,7 @@ export const AcademyChatbot: React.FC = () => {
               </button>
             </form>
             <p className="mt-1.5 text-[10px] text-center text-slate-400">
-              Helpline: <strong className="text-slate-600">0309-3534289</strong> • Powered by Workers AI
+              Helpline: <strong className="text-slate-600">{whatsappHelpline}</strong> • Powered by Workers AI
             </p>
           </footer>
         </section>

@@ -51,8 +51,8 @@ export const OFFICIAL_FAQS: FAQItem[] = [
     id: 'faq-online-courses-pricing',
     question: 'What is the fee and access duration for Online Courses?',
     questionRomanUrdu: 'Online courses ki fee aur access kitne arsay ka hota hai?',
-    answer: 'Online courses are available at Rs. 5,000 per course with 6 months of continuous access to recorded lectures. Course access can also be extended upon admin review.',
-    answerRomanUrdu: 'Online courses ki default fee Rs. 5,000 fi course hai jisme 6 mah tak recorded lectures ki rasai di jaati hai.',
+    answer: `Online courses are priced as set by the academy administration (standard Rs. ${siteConfig.onlineCourses.defaultPrice.toLocaleString()} per course) with ${siteConfig.onlineCourses.defaultAccessDurationMonths} months of continuous access to recorded lectures.`,
+    answerRomanUrdu: `Online courses ki fee academy administration ke mutabiq hoti hai (standard Rs. ${siteConfig.onlineCourses.defaultPrice.toLocaleString()} fi course) jisme ${siteConfig.onlineCourses.defaultAccessDurationMonths} mah tak recorded lectures ki rasai di jaati hai.`,
     category: 'online',
   },
   {
@@ -83,8 +83,8 @@ export const OFFICIAL_FAQS: FAQItem[] = [
     id: 'faq-contact-admissions',
     question: 'How do I start admission or ask further questions?',
     questionRomanUrdu: 'Dakhla lene ya mazeed maloomat ke liye kaise rabta karein?',
-    answer: 'Connect with us directly on WhatsApp at 0309-3534289 or visit our campus in Sadiqabad, Punjab during regular business hours.',
-    answerRomanUrdu: 'Direct hamare WhatsApp number 0309-3534289 par rabta karein ya Sadiqabad campus tashreef layein.',
+    answer: `Connect with us directly on WhatsApp at ${siteConfig.whatsapp} or visit our campus in Sadiqabad, Punjab during regular business hours.`,
+    answerRomanUrdu: `Direct hamare WhatsApp number ${siteConfig.whatsapp} par rabta karein ya Sadiqabad campus tashreef layein.`,
     category: 'admissions',
   },
 ];

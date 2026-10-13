@@ -30,9 +30,9 @@ CRITICAL ACADEMY KNOWLEDGE:
 - Academy Name: The Inspire Business Academy (Hunarmand Pakistan)
 - Founder & Leadership: Adeel Bhatti
 - Campus Location: Main Campus, Sadiqabad, Rahim Yar Khan District, Punjab, Pakistan
-- Official WhatsApp / Helpline: 0300-1234567 / 0309-3534289
-- Physical Package: 6-Month Comprehensive Vocational Program (Monday - Friday). Monthly Fee: Rs. 5,040. Total 6-Month Fee: Rs. 30,240. Computer lab workstations available on campus (no laptops given to take home).
-- Online Courses: Self-paced video lessons with chapter quizzes and final exam. Fee: Rs. 5,000 per course.
+- Official WhatsApp / Helpline: Refer to official helpline details on website
+- Physical Package: Comprehensive Vocational Program (Monday - Friday). Dedicated computer lab workstations available on campus (no laptops given to take home).
+- Online Courses: Self-paced video lessons with chapter quizzes and final exam.
 - Passing Requirement: Minimum 70% passing score on final examination is required for verified certificate.
 - Verification: Public certificate verification is available 24/7 at /verify.
 
@@ -176,11 +176,11 @@ export async function buildChatbotContext(
       (q) => q.eq('is_published', true).order('display_order', { ascending: true })
     );
 
-    // 6. Public Packages (without promo codes!)
+    // 6. Active Packages (without promo codes!)
     const packageRows = await queryTable(
       'packages',
       'title, description, package_type, courses_count',
-      (q) => q.eq('is_public', true)
+      (q) => q.eq('is_active', true)
     );
 
     // 7. Active Offers (strictly without promo codes!)

@@ -73,21 +73,24 @@ export interface WorkersAiResponse {
 /**
  * Executes a completion request using the available Cloudflare Workers AI interface.
  */
+export function sanitizeErrorMessage(msg: string): string {
+  return msg
+    .replace(/SYNTHETIC_[A-Za-z0-9_]+/g, '[REDACTED]')
+    .replace(/(?:Bearer\s+|token\s+|key\s+|secret\s+|password\s+)[^\s,;]+/gi, (m) => m.split(/\s+/)[0] + ' [REDACTED]')
+    .replace(/(?:[a-zA-Z]:)?[\\/][a-zA-Z0-9_.-]+(?:[\\/][a-zA-Z0-9_.-]+)*\.(?:ts|js|json)/gi, '[REDACTED_PATH]')
+    .replace(/internal\/[a-zA-Z0-9_.-]+/gi, '[REDACTED_PATH]');
+}
+
+/**
+ * Executes a completion request using the available Cloudflare Workers AI interface.
+ * Implements Task B1 model fallback sequence and error logging.
+ */
 export async function runWorkersAi(
   req: any,
   messages: WorkersAiMessage[],
   options: WorkersAiOptions = {}
 ): Promise<WorkersAiResponse> {
   const correlationId = 'ai_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
-  const rawModel = options.model || getEnv(req, 'CLOUDFLARE_AI_MODEL') || DEFAULT_WORKERS_AI_MODEL;
-  if (!isValidWorkersAiModel(rawModel)) {
-    return {
-      ok: false,
-      error: 'Invalid Workers AI model identifier format.',
-      correlationId,
-    };
-  }
-  const model = rawModel;
   const maxTokens = Math.min(options.maxTokens || 512, MAX_OUTPUT_TOKENS);
   const temperature = options.temperature ?? 0.6;
 
@@ -119,170 +122,193 @@ export async function runWorkersAi(
     };
   }
 
-  // 2. Approach A: Cloudflare Workers AI Native Binding (env.AI)
+  // Model sequence order (Task B1):
+  // [env CLOUDFLARE_AI_MODEL if valid, '@cf/meta/llama-3.1-8b-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.2-3b-instruct']
+  const envModel = getEnv(req, 'CLOUDFLARE_AI_MODEL');
+  const candidateList = [
+    options.model && isValidWorkersAiModel(options.model) ? options.model.trim() : null,
+    envModel && isValidWorkersAiModel(envModel) ? envModel.trim() : null,
+    '@cf/meta/llama-3.1-8b-instruct',
+    '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    '@cf/meta/llama-3.2-3b-instruct',
+  ].filter((m): m is string => Boolean(m));
+
+  // Deduplicate preserving order
+  const modelsToTry = Array.from(new Set(candidateList));
+
+  const payload = {
+    messages: boundedMessages,
+    max_tokens: maxTokens,
+    temperature,
+  };
+
   const aiBinding = req?.ai || req?.env?.AI;
-  if (aiBinding && typeof aiBinding.run === 'function') {
-    const rawGatewayId = getEnv(req, 'CLOUDFLARE_AI_GATEWAY_ID');
-    const gatewayId =
-      rawGatewayId && isValidCloudflareAiGatewayId(rawGatewayId)
-        ? rawGatewayId.trim()
-        : 'default';
-
-    const gatewayConfig: { id: string; cacheTtl?: number } = { id: gatewayId };
-    const rawCacheTtl = getEnv(req, 'CLOUDFLARE_AI_CACHE_TTL');
-    if (rawCacheTtl) {
-      const parsedTtl = Number(rawCacheTtl);
-      if (Number.isInteger(parsedTtl) && parsedTtl > 0) {
-        gatewayConfig.cacheTtl = parsedTtl;
-      }
-    }
-
-    const payload = {
-      messages: boundedMessages,
-      max_tokens: maxTokens,
-      temperature,
-    };
-
-function sanitizeErrorMessage(msg: string): string {
-  return msg
-    .replace(/SYNTHETIC_[A-Za-z0-9_]+/g, '[REDACTED]')
-    .replace(/(?:Bearer\s+|token\s+|key\s+|secret\s+|password\s+)[^\s,;]+/gi, (m) => m.split(/\s+/)[0] + ' [REDACTED]')
-    .replace(/(?:[a-zA-Z]:)?[\\/][a-zA-Z0-9_.-]+(?:[\\/][a-zA-Z0-9_.-]+)*\.(?:ts|js|json)/gi, '[REDACTED_PATH]')
-    .replace(/internal\/[a-zA-Z0-9_.-]+/gi, '[REDACTED_PATH]');
-}
-
-    let result: any;
-    try {
-      result = await aiBinding.run(model, payload, { gateway: gatewayConfig });
-    } catch (gatewayErr: any) {
-      // If the call with the gateway option fails, retry ONCE with the same payload and NO third argument (direct Workers AI)
-      try {
-        result = await aiBinding.run(model, payload);
-      } catch (directErr: any) {
-        // Only if both fail return the generic error
-        const err = directErr || gatewayErr;
-        const errName = err?.name || 'Error';
-        const rawMsg = typeof err?.message === 'string' ? err.message : String(err || '');
-        const truncatedMsg = rawMsg.replace(/[\r\n]+/g, ' ').slice(0, 200);
-        const sanitizedMsg = sanitizeErrorMessage(truncatedMsg);
-
-        console.error(
-          `[Workers AI Error] correlationId=${correlationId} model=${model} err.name=${errName} err.message=${sanitizedMsg}`
-        );
-
-        const isDebug = getEnv(req, 'AI_DEBUG') === 'true';
-        const errResponse: WorkersAiResponse = {
-          ok: false,
-          error: 'Workers AI inference failed.',
-          correlationId,
-        };
-        if (isDebug) {
-          errResponse.reason = truncatedMsg;
-        }
-        return errResponse;
-      }
-    }
-
-    const text = extractTextFromAiResult(result);
-    if (!text) {
-      return {
-        ok: false,
-        error: 'Model returned an empty response.',
-        correlationId,
-      };
-    }
-
-    return {
-      ok: true,
-      text,
-      correlationId,
-      modelUsed: model,
-      configured: true,
-    };
-  }
-
-  // 3. Approach B: Official Cloudflare Workers AI REST API Fallback
   const accountId = getEnv(req, 'CLOUDFLARE_ACCOUNT_ID');
   const apiToken = getEnv(req, 'CLOUDFLARE_API_TOKEN');
+  const hasConfig = Boolean((aiBinding && typeof aiBinding.run === 'function') || (accountId && apiToken));
 
-  if (accountId && apiToken) {
-    if (!isValidCloudflareAccountId(accountId)) {
-      return {
-        ok: false,
-        error: 'Invalid Cloudflare account ID format for Workers AI REST API.',
-        correlationId,
-      };
-    }
+  if (!hasConfig) {
+    return {
+      ok: false,
+      error: 'Cloudflare Workers AI is not configured. Please bind Workers AI in the Cloudflare Pages dashboard or provide server credentials.',
+      configured: false,
+      correlationId,
+    };
+  }
 
-    try {
-      const endpoint = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`;
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: boundedMessages,
-          max_tokens: maxTokens,
-          temperature,
-        }),
-      });
+  let lastErrorReason: string | undefined = undefined;
 
-      if (!response.ok) {
-        console.error(`[Workers AI REST Error] id=${correlationId} status=${response.status}`);
-        return {
-          ok: false,
-          error: 'Cloudflare Workers AI gateway returned an error.',
-          correlationId,
-        };
+  for (const currentModel of modelsToTry) {
+    // Approach A: Cloudflare Workers AI Native Binding
+    if (aiBinding && typeof aiBinding.run === 'function') {
+      const rawGatewayId = getEnv(req, 'CLOUDFLARE_AI_GATEWAY_ID');
+      const gatewayId =
+        rawGatewayId && isValidCloudflareAiGatewayId(rawGatewayId)
+          ? rawGatewayId.trim()
+          : 'default';
+
+      const gatewayConfig: { id: string; cacheTtl?: number } = { id: gatewayId };
+      const rawCacheTtl = getEnv(req, 'CLOUDFLARE_AI_CACHE_TTL');
+      if (rawCacheTtl) {
+        const parsedTtl = Number(rawCacheTtl);
+        if (Number.isInteger(parsedTtl) && parsedTtl > 0) {
+          gatewayConfig.cacheTtl = parsedTtl;
+        }
       }
 
-      const json: any = await response.json();
-      const text = extractTextFromAiResult(json?.result || json);
-      if (!text) {
-        return {
-          ok: false,
-          error: 'Model returned an empty response.',
-          correlationId,
-        };
+      let result: any = null;
+      let modelThrew = false;
+
+      try {
+        result = await aiBinding.run(currentModel, payload, { gateway: gatewayConfig });
+      } catch (gatewayErr: any) {
+        // Retry without gateway
+        try {
+          result = await aiBinding.run(currentModel, payload);
+        } catch (directErr: any) {
+          modelThrew = true;
+          const err = directErr || gatewayErr;
+          const errName = err?.name || 'Error';
+          const rawMsg = typeof err?.message === 'string' ? err.message : String(err || '');
+          const truncatedMsg = rawMsg.replace(/[\r\n]+/g, ' ').slice(0, 200);
+          const sanitizedMsg = sanitizeErrorMessage(truncatedMsg);
+          console.error(
+            `[Workers AI Error] model=${currentModel} err.name=${errName} err.message=${sanitizedMsg}`
+          );
+          lastErrorReason = truncatedMsg;
+        }
       }
 
-      return {
-        ok: true,
-        text,
-        correlationId,
-        modelUsed: model,
-        configured: true,
-      };
-    } catch (err: any) {
-      console.error(`[Workers AI REST Fetch Error] id=${correlationId} type=${err?.name || 'FetchError'}`);
-      return {
-        ok: false,
-        error: 'Unable to communicate with Cloudflare Workers AI service.',
-        correlationId,
-      };
+      if (!modelThrew && result) {
+        const text = extractTextFromAiResult(result);
+        if (text) {
+          return {
+            ok: true,
+            text,
+            correlationId,
+            modelUsed: currentModel,
+            configured: true,
+          };
+        } else {
+          console.error(
+            `[Workers AI Error] model=${currentModel} err.name=EmptyResponseError err.message=Model returned an empty response`
+          );
+          lastErrorReason = 'Model returned empty response';
+        }
+      }
+    } else if (accountId && apiToken && isValidCloudflareAccountId(accountId)) {
+      // Approach B: REST API Fallback
+      try {
+        const endpoint = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${currentModel}`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errStatus = response.status;
+          console.error(
+            `[Workers AI REST Error] model=${currentModel} err.name=HttpError err.message=HTTP status ${errStatus}`
+          );
+          lastErrorReason = `REST HTTP status ${errStatus}`;
+          continue;
+        }
+
+        const json: any = await response.json();
+        const text = extractTextFromAiResult(json?.result || json);
+        if (text) {
+          return {
+            ok: true,
+            text,
+            correlationId,
+            modelUsed: currentModel,
+            configured: true,
+          };
+        } else {
+          console.error(
+            `[Workers AI REST Error] model=${currentModel} err.name=EmptyResponseError err.message=REST returned empty response`
+          );
+          lastErrorReason = 'REST returned empty response';
+        }
+      } catch (restErr: any) {
+        const errName = restErr?.name || 'FetchError';
+        const rawMsg = typeof restErr?.message === 'string' ? restErr.message : String(restErr || '');
+        const truncatedMsg = rawMsg.replace(/[\r\n]+/g, ' ').slice(0, 200);
+        const sanitizedMsg = sanitizeErrorMessage(truncatedMsg);
+        console.error(
+          `[Workers AI REST Error] model=${currentModel} err.name=${errName} err.message=${sanitizedMsg}`
+        );
+        lastErrorReason = truncatedMsg;
+      }
     }
   }
 
-  // 4. Neither binding nor credentials configured
-  return {
+  // All models failed or returned empty
+  const isDebug = getEnv(req, 'AI_DEBUG') === 'true';
+  const finalResponse: WorkersAiResponse = {
     ok: false,
-    error: 'Cloudflare Workers AI is not configured. Please bind Workers AI in the Cloudflare Pages dashboard or provide server credentials.',
-    configured: false,
+    error: 'All Workers AI models failed or returned empty responses.',
     correlationId,
+    configured: true,
   };
+  if (isDebug && lastErrorReason) {
+    finalResponse.reason = lastErrorReason;
+  }
+  return finalResponse;
 }
 
 /**
  * Safely extracts textual answer from diverse Workers AI response payloads.
+ * Supports: result.response, result.result.response, result.choices[0].message.content,
+ * result.output_text, result.text, result.output, and array variants.
  */
-function extractTextFromAiResult(result: any): string {
+export function extractTextFromAiResult(result: any): string {
   if (!result) return '';
   if (typeof result === 'string') return result.trim();
-  if (typeof result.response === 'string') return result.response.trim();
-  if (typeof result.text === 'string') return result.text.trim();
-  if (Array.isArray(result) && result[0]?.response) return String(result[0].response).trim();
-  if (typeof result.output === 'string') return result.output.trim();
+  if (typeof result.response === 'string' && result.response.trim()) return result.response.trim();
+  if (result.result && typeof result.result.response === 'string' && result.result.response.trim()) {
+    return result.result.response.trim();
+  }
+  if (Array.isArray(result.choices) && result.choices[0]?.message?.content) {
+    const content = result.choices[0].message.content;
+    if (typeof content === 'string' && content.trim()) return content.trim();
+  }
+  if (typeof result.output_text === 'string' && result.output_text.trim()) return result.output_text.trim();
+  if (typeof result.text === 'string' && result.text.trim()) return result.text.trim();
+  if (typeof result.output === 'string' && result.output.trim()) return result.output.trim();
+  if (Array.isArray(result) && result.length > 0) {
+    for (const item of result) {
+      const extracted = extractTextFromAiResult(item);
+      if (extracted) return extracted;
+    }
+  }
+  if (typeof result.result === 'object' && result.result !== null) {
+    const extracted = extractTextFromAiResult(result.result);
+    if (extracted) return extracted;
+  }
   return '';
 }

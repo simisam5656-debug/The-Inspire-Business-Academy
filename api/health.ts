@@ -5,6 +5,7 @@ export interface HealthCheckResponse {
   status: "healthy";
   timestamp: string;
   uptimeSeconds: number;
+  aiBinding: boolean;
 }
 
 const startTime = Date.now();
@@ -19,6 +20,8 @@ export default function handler(req: any, res: any) {
     });
   }
 
+  const aiBinding = Boolean(req?.ai || req?.env?.AI);
+
   const response: HealthCheckResponse = {
     ok: true,
     service: "The Inspire Business Academy",
@@ -26,6 +29,7 @@ export default function handler(req: any, res: any) {
     status: "healthy",
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.floor((Date.now() - startTime) / 1000),
+    aiBinding,
   };
 
   // Safe headers
