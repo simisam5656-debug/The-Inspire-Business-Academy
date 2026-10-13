@@ -440,12 +440,18 @@ export async function resolveAuthoritativePrice(
     selectedCourseIds,
     offerId,
     offerTitle,
-    offer: eligibleOffer,
+    offer: eligibleOffer
+      ? {
+          ...eligibleOffer,
+          discountAmount: offerDiscount,
+          discountPercentage: Number(eligibleOffer.discount_percentage ?? 0),
+        }
+      : null,
     promoCodeId,
     promoCode: resolvedPromoCode,
     couponId,
     couponCode: resolvedCouponCode,
-    coupon: validatedCoupon,
+    coupon: validatedCoupon ? { ...validatedCoupon, discountAmount: couponDiscount } : null,
     couponMessage,
     couponMessageRoman,
   };

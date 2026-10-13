@@ -259,9 +259,9 @@ export const OnlineJoinPage: React.FC = () => {
 
       if (res && res.ok) {
         setPricing({
-          basePrice: res.basePrice,
-          totalDiscount: res.totalDiscount,
-          finalAmount: res.finalAmount,
+          basePrice: Number(res.basePrice ?? 0),
+          totalDiscount: Number(res.totalDiscount ?? 0),
+          finalAmount: Number(res.finalAmount ?? 0),
           offer: res.offer,
           coupon: res.coupon,
         });
@@ -538,8 +538,8 @@ export const OnlineJoinPage: React.FC = () => {
     return {
       value: c.slug,
       label: isRoman
-        ? `${c.titleRomanUrdu || c.title} (Rs. ${pr.toLocaleString()} / ${dur} Mah Access)`
-        : `${c.title} (Rs. ${pr.toLocaleString()} / ${dur}-Month Access)`,
+        ? `${c.titleRomanUrdu || c.title} (Rs. ${Number(pr ?? 0).toLocaleString()} / ${dur} Mah Access)`
+        : `${c.title} (Rs. ${Number(pr ?? 0).toLocaleString()} / ${dur}-Month Access)`,
     };
   });
 
@@ -627,7 +627,7 @@ export const OnlineJoinPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 font-sans">{isRoman ? 'Ada Shuda Raqam:' : 'Amount Paid:'}</span>
-                  <span className="font-bold text-[#0F1F5C]">Rs. {submittedFinalAmount.toLocaleString()}</span>
+                  <span className="font-bold text-[#0F1F5C]">Rs. {Number(submittedFinalAmount ?? 0).toLocaleString()}</span>
                 </div>
               </div>
 
@@ -1024,8 +1024,8 @@ export const OnlineJoinPage: React.FC = () => {
                       {calculatingPrice || !priceLoaded
                         ? (isRoman ? 'Fees hisaab ki ja rahi hai...' : 'Calculating Fee...')
                         : (isRoman
-                            ? `Rs. ${pricing.finalAmount.toLocaleString()} Adaigi & Dakhla Submit Karein`
-                            : `Submit Registration & Rs. ${pricing.finalAmount.toLocaleString()} Payment`)}
+                            ? `Rs. ${Number(pricing.finalAmount ?? 0).toLocaleString()} Adaigi & Dakhla Submit Karein`
+                            : `Submit Registration & Rs. ${Number(pricing.finalAmount ?? 0).toLocaleString()} Payment`)}
                     </Button>
 
                     <p className="text-center text-[11px] text-slate-400">
@@ -1057,7 +1057,7 @@ export const OnlineJoinPage: React.FC = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-slate-600">{isRoman ? 'Course Base Fee:' : 'Base Course Fee:'}</span>
                           <span className="font-semibold text-slate-900 font-mono">
-                            Rs. {pricing.basePrice.toLocaleString()}
+                            Rs. {Number(pricing.basePrice ?? 0).toLocaleString()}
                           </span>
                         </div>
 
@@ -1065,10 +1065,10 @@ export const OnlineJoinPage: React.FC = () => {
                           <div className="flex justify-between items-center text-emerald-700">
                             <span className="flex items-center gap-1">
                               <Sparkles className="w-3.5 h-3.5" />
-                              <span>{pricing.offer.title} (-{pricing.offer.discountPercentage}%)</span>
+                              <span>{pricing.offer.title}{Number(pricing.offer.discountPercentage ?? pricing.offer.discount_percentage ?? 0) > 0 ? ` (-${Number(pricing.offer.discountPercentage ?? pricing.offer.discount_percentage)}%)` : ''}</span>
                             </span>
                             <span className="font-semibold font-mono">
-                              -Rs. {pricing.offer.discountAmount.toLocaleString()}
+                              -Rs. {Number(pricing.offer.discountAmount ?? 0).toLocaleString()}
                             </span>
                           </div>
                         )}
@@ -1080,7 +1080,7 @@ export const OnlineJoinPage: React.FC = () => {
                               <span>Coupon ({pricing.coupon.code})</span>
                             </span>
                             <span className="font-semibold font-mono">
-                              -Rs. {pricing.coupon.discountAmount.toLocaleString()}
+                              -Rs. {Number(pricing.coupon.discountAmount ?? 0).toLocaleString()}
                             </span>
                           </div>
                         )}
@@ -1090,7 +1090,7 @@ export const OnlineJoinPage: React.FC = () => {
                       <div className="flex justify-between items-center pt-3 text-base font-bold text-[#0F1F5C]">
                         <span>{isRoman ? 'Kul Qabil-e-Ada Raqam:' : 'Net Payable Amount:'}</span>
                         <span className="text-xl text-[#1F3FBF] font-mono">
-                          Rs. {pricing.finalAmount.toLocaleString()}
+                          Rs. {Number(pricing.finalAmount ?? 0).toLocaleString()}
                         </span>
                       </div>
                     </>
