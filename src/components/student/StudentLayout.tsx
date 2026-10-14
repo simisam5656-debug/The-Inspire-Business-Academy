@@ -21,9 +21,11 @@ import {
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { siteConfig } from '../../config/site';
+import { useSiteContact } from '../../hooks/useSiteContact';
 import { StudentAccessService, StudentAccessState } from '../../services/studentAccessService';
 
 export const StudentLayout: React.FC = () => {
+  const contact = useSiteContact();
   const { language, setLanguage } = useTranslation();
   const isRoman = language === 'roman-urdu';
   const { user, profile, signOut } = useAuth();
@@ -38,8 +40,7 @@ export const StudentLayout: React.FC = () => {
     message: '',
   });
 
-  const rawPhone = siteConfig.whatsapp.replace(/[^0-9]/g, '');
-  const waNumber = rawPhone.startsWith('0') ? `92${rawPhone.slice(1)}` : rawPhone;
+  const waNumber = contact.waDigits;
   const whatsappUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(
     'Assalam-o-Alaikum, I need assistance regarding my online course access on The Inspire Business Academy portal.'
   )}`;

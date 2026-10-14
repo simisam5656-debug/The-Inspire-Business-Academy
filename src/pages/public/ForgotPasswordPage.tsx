@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from '../../i18n';
-import { siteConfig } from '../../config/site';
+import { useSiteContact } from '../../hooks/useSiteContact';
 import { Container } from '../../components/ui/Container';
 import { Section } from '../../components/ui/Section';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
@@ -14,6 +14,7 @@ import { getLocalizedAuthError } from '../../utils/authErrors';
 import { SEO } from '../../components/common/SEO';
 
 export const ForgotPasswordPage: React.FC = () => {
+  const contact = useSiteContact();
   const { language, t } = useTranslation();
   const isRoman = language === 'roman-urdu';
 
@@ -152,7 +153,7 @@ export const ForgotPasswordPage: React.FC = () => {
                 {isRoman ? 'Email access nahi mil raha?' : 'Having trouble accessing your email?'}
               </p>
               <a
-                href={`https://wa.me/92${siteConfig.whatsapp.replace(/[^0-9]/g, '').slice(1)}?text=${encodeURIComponent(
+                href={`https://wa.me/${contact.waDigits}?text=${encodeURIComponent(
                   'Assalam o Alaikum! Mujhe online student account password recovery mein madad chahiye.'
                 )}`}
                 target="_blank"
@@ -160,7 +161,7 @@ export const ForgotPasswordPage: React.FC = () => {
                 className="inline-flex items-center text-xs font-semibold text-[#1F3FBF] hover:underline gap-1"
               >
                 <Phone className="w-3.5 h-3.5" />
-                <span>{isRoman ? 'Academy WhatsApp Helpline (0309-3534289)' : 'Contact Helpline via WhatsApp'}</span>
+                <span>{isRoman ? `Academy WhatsApp Helpline (${contact.whatsapp})` : 'Contact Helpline via WhatsApp'}</span>
               </a>
             </div>
           </CardContent>

@@ -638,7 +638,7 @@ class LocalCMSStore {
     greetingEn: 'Welcome to The Inspire Business Academy! How can I assist you with our programs or admissions today?',
     greetingRomanUrdu: 'The Inspire Business Academy mein khush amdeed! Main aap ki courses ya dakhla ke baray mein kia madad kar sakta hoon?',
     extraInstructions: '',
-    fallbackMessage: 'Hamari AI helpline filwaqt masroof hai. Baraye meharbani WhatsApp helpline 0309-3534289 par rabta farmayein.',
+    fallbackMessage: 'Hamari AI helpline filwaqt masroof hai. Baraye meharbani WhatsApp helpline par rabta farmayein.',
   };
 
   private chatbotKnowledge: ChatbotKnowledgeItem[] = [

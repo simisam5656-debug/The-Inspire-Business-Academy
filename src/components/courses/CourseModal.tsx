@@ -7,6 +7,7 @@ import { useTranslation } from '../../i18n';
 import { Clock, Laptop, CheckCircle2, Award, ArrowRight, ShieldCheck, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { siteConfig } from '../../config/site';
+import { useSiteContact } from '../../hooks/useSiteContact';
 
 export interface CourseModalProps {
   course: CourseData | any | null;
@@ -19,6 +20,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const contact = useSiteContact();
   const { language, t } = useTranslation();
   if (!course) return null;
 
@@ -121,7 +123,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
         {/* Action Buttons */}
         <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
           <a
-            href={`https://wa.me/92${siteConfig.whatsapp.replace(/[^0-9]/g, '').slice(1)}?text=${encodeURIComponent(
+            href={`https://wa.me/${contact.waDigits}?text=${encodeURIComponent(
               `Assalam o Alaikum! Mujhe The Inspire Business Academy ke course "${title}" ke bare mein maloomat chahiye.`
             )}`}
             target="_blank"

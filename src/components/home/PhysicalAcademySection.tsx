@@ -6,10 +6,12 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { useTranslation } from '../../i18n';
 import { siteConfig } from '../../config/site';
+import { useSiteContact } from '../../hooks/useSiteContact';
 import { Clock, MapPin, Phone, Building2, Calendar, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const PhysicalAcademySection: React.FC = () => {
+  const contact = useSiteContact();
   const { language } = useTranslation();
   const isRoman = language === 'roman-urdu';
 
@@ -90,14 +92,14 @@ export const PhysicalAcademySection: React.FC = () => {
               </Button>
             </Link>
             <a
-              href={`https://wa.me/92${siteConfig.whatsapp.replace(/[^0-9]/g, '').slice(1)}?text=${encodeURIComponent(
+              href={`https://wa.me/${contact.waDigits}?text=${encodeURIComponent(
                 'Assalam o Alaikum! Mujhe physical academy batch timing aur dakhla ke bare mein maloomat chahiye.'
               )}`}
               target="_blank"
               rel="noopener noreferrer"
             >
               <Button variant="outline" size="sm" className="border-white text-white hover:bg-white hover:text-[#0F1F5C]">
-                WhatsApp: {siteConfig.whatsapp}
+                WhatsApp: {contact.whatsapp}
               </Button>
             </a>
           </div>

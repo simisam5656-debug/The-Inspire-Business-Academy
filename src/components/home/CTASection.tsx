@@ -4,10 +4,12 @@ import { Section } from '../ui/Section';
 import { Button } from '../ui/Button';
 import { useTranslation } from '../../i18n';
 import { siteConfig } from '../../config/site';
+import { useSiteContact } from '../../hooks/useSiteContact';
 import { Phone, ArrowRight, GraduationCap, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const CTASection: React.FC = () => {
+  const contact = useSiteContact();
   const { language } = useTranslation();
   const isRoman = language === 'roman-urdu';
 
@@ -44,7 +46,7 @@ export const CTASection: React.FC = () => {
               </Link>
 
               <a
-                href={`https://wa.me/92${siteConfig.whatsapp.replace(/[^0-9]/g, '').slice(1)}?text=${encodeURIComponent(
+                href={`https://wa.me/${contact.waDigits}?text=${encodeURIComponent(
                   'Assalam o Alaikum! Mujhe The Inspire Business Academy mein dakhla ke bare mein rahnumai chahiye.'
                 )}`}
                 target="_blank"
@@ -56,7 +58,7 @@ export const CTASection: React.FC = () => {
                   className="border-white text-white hover:bg-white hover:text-[#0F1F5C]"
                   leftIcon={<Phone className="w-4 h-4 text-[#FFC20E]" />}
                 >
-                  WhatsApp: {siteConfig.whatsapp}
+                  WhatsApp: {contact.whatsapp}
                 </Button>
               </a>
             </div>
