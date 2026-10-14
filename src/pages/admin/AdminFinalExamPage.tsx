@@ -92,7 +92,36 @@ export const AdminFinalExamPage: React.FC = () => {
 
   const handleSaveExamConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingConfig?.id) return;
+    if (!editingConfig) return;
+    if (!editingConfig.id) {
+      // CREATE a new final exam for a course
+      setSaving(true);
+      setMsgError(null);
+      try {
+        await AssessmentService.createFinalExam(
+          {
+            ...editingConfig,
+            courseId: editingConfig.courseId || '',
+            title: editingConfig.title || '',
+          },
+          user?.id,
+          role || 'super_admin'
+        );
+        setMsgSuccess(
+          isRoman
+            ? 'Final Exam ban gaya! Ab sawalat (questions) shamil karein.'
+            : 'Final Exam created! Now add questions to it.'
+        );
+        setShowConfigModal(false);
+        setEditingConfig(null);
+        await loadData();
+      } catch (err: any) {
+        setMsgError(err.message || 'Final Exam banate waqt masla aaya.');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     setSaving(true);
     setMsgError(null);
     try {
@@ -177,6 +206,27 @@ export const AdminFinalExamPage: React.FC = () => {
               : 'Administer final course examinations, pass threshold (default 70%), and question pools.'}
           </p>
         </div>
+        <Button
+          variant="primary"
+          size="sm"
+          className="bg-[#1F3FBF]"
+          onClick={() => {
+            const used = new Set(exams.map((x) => x.courseId));
+            const firstFree = courses.find((c) => !used.has(c.id));
+            setEditingConfig({
+              courseId: firstFree?.id || '',
+              title: firstFree ? `${firstFree.title} - Final Exam` : '',
+              passingPercentage: 70,
+              durationMinutes: 45,
+              attemptLimit: 2,
+              isPublished: true,
+            });
+            setShowConfigModal(true);
+          }}
+        >
+          <Plus className="w-3.5 h-3.5 mr-1" />
+          {isRoman ? 'Naya Final Exam' : 'New Final Exam'}
+        </Button>
       </div>
 
       {msgSuccess && (
@@ -412,7 +462,7 @@ export const AdminFinalExamPage: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-[#0F1F5C]">
-                Final Exam Settings
+                {editingConfig.id ? 'Final Exam Settings' : (isRoman ? 'Naya Final Exam' : 'New Final Exam')}
               </h3>
               <button onClick={() => setShowConfigModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -420,6 +470,50 @@ export const AdminFinalExamPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveExamConfig} className="space-y-3.5 text-xs">
+              {!editingConfig.id && (
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Course</label>
+                  <select
+                    value={editingConfig.courseId || ''}
+                    onChange={(e) => {
+                      const c = courses.find((x) => x.id === e.target.value);
+                      setEditingConfig({
+                        ...editingConfig,
+                        courseId: e.target.value,
+                        title: c ? `${c.title} - Final Exam` : editingConfig.title,
+                      });
+                    }}
+                    required
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs bg-white"
+                  >
+                    <option value="">-- Course select karein --</option>
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id} disabled={exams.some((x) => x.courseId === c.id)}>
+                        {c.title}{exams.some((x) => x.courseId === c.id) ? ' (exam majood hai)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Exam Title</label>
+                <Input
+                  value={editingConfig.title ?? ''}
+                  onChange={(e) => setEditingConfig({ ...editingConfig, title: e.target.value })}
+                  required
+                />
+              </div>
+
+              <label className="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingConfig.isPublished ?? true}
+                  onChange={(e) => setEditingConfig({ ...editingConfig, isPublished: e.target.checked })}
+                />
+                {isRoman ? 'Publish (students ko nazar aaye)' : 'Published (visible to students)'}
+              </label>
+
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">
                   Passing Percentage (%) — Default 70%

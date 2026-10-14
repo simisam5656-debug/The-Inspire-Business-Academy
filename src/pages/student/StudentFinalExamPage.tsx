@@ -40,6 +40,7 @@ export const StudentFinalExamPage: React.FC = () => {
   const [exam, setExam] = useState<FinalExamRecord | null>(null);
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   const [attempts, setAttempts] = useState<FinalExamAttemptRecord[]>([]);
+  const [questionCount, setQuestionCount] = useState(0);
 
   // Exam taking state
   const [isTakingExam, setIsTakingExam] = useState(false);
@@ -87,27 +88,58 @@ export const StudentFinalExamPage: React.FC = () => {
     loadData();
   }, [user?.id]);
 
+  const mapAttempt = (a: any, courseId: string, threshold: number): FinalExamAttemptRecord => ({
+    id: a.id || `att-${Date.now()}`,
+    userId: user?.id || '',
+    examId: a.exam_id || a.examId || '',
+    courseId,
+    attemptNumber: a.attempt_number ?? a.attemptNumber ?? 1,
+    score: a.score,
+    maxScore: a.max_score ?? a.maxScore,
+    percentage: Number(a.percentage),
+    passed: Boolean(a.passed),
+    passingThreshold: threshold,
+    userAnswers: {},
+    status: 'completed',
+    startedAt: a.completed_at || new Date().toISOString(),
+    completedAt: a.completed_at || new Date().toISOString(),
+  });
+
   const loadCourseExam = async (courseId: string) => {
     if (!user?.id) return;
     try {
-      const [fe, userAttempts] = await Promise.all([
-        AssessmentService.getFinalExamForCourse(courseId),
-        AssessmentService.getStudentExamAttempts(user.id),
-      ]);
-
-      setExam(fe);
-      const filteredAttempts = userAttempts.filter((a) => a.courseId === courseId);
-      setAttempts(filteredAttempts);
-
-      if (fe) {
-        // Load exam questions (excluding correct answers)
-        const qList = await AssessmentService.getFinalExamQuestions(fe.id, false);
-        setQuestions(qList);
-      } else {
-        setQuestions([]);
+      const { exams } = await AssessmentService.listStudentAssessments();
+      const fe = exams.find((x: any) => x.courseId === courseId);
+      if (!fe) {
+        setExam(null);
+        setAttempts([]);
+        setQuestionCount(0);
+        return;
       }
-    } catch (err) {
+      setExam({
+        id: fe.id,
+        courseId: fe.courseId,
+        courseTitle: fe.courseTitle,
+        title: fe.title,
+        titleRomanUrdu: fe.titleRomanUrdu,
+        description: fe.description,
+        descriptionRomanUrdu: fe.descriptionRomanUrdu,
+        instructions: fe.instructions,
+        instructionsRomanUrdu: fe.instructionsRomanUrdu,
+        durationMinutes: fe.durationMinutes,
+        passingPercentage: fe.passingPercentage,
+        attemptLimit: fe.attemptLimit,
+        isPublished: true,
+        questionCount: fe.questionCount,
+        createdAt: '',
+        updatedAt: '',
+      });
+      setQuestionCount(fe.questionCount || 0);
+      setAttempts(fe.attempts.map((a: any) => mapAttempt(a, courseId, fe.passingPercentage)));
+    } catch (err: any) {
       console.error('Error loading course exam:', err);
+      setExam(null);
+      setErrorMsg(err?.message || 'Exam load nahi ho saka.');
     }
   };
 
@@ -128,13 +160,34 @@ export const StudentFinalExamPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [isTakingExam, secondsRemaining]);
 
-  const handleStartExam = () => {
-    if (!exam || questions.length === 0) return;
+  const handleStartExam = async () => {
+    if (!exam || questionCount === 0) return;
     setErrorMsg(null);
-    setUserAnswers({});
-    setLatestResult(null);
-    setSecondsRemaining((exam.durationMinutes || 45) * 60);
-    setIsTakingExam(true);
+    try {
+      const started = await AssessmentService.startStudentAssessment('exam', exam.id);
+      setQuestions(
+        started.questions.map((q: any, i: number) => ({
+          id: q.id,
+          courseId: exam.courseId,
+          questionTextEn: q.textEn,
+          questionTextRoman: q.textRoman,
+          questionType: q.type,
+          options: q.options,
+          correctOptionId: '',
+          marks: q.marks,
+          displayOrder: i,
+          isActive: true,
+          createdAt: '',
+          updatedAt: '',
+        }))
+      );
+      setUserAnswers({});
+      setLatestResult(null);
+      setSecondsRemaining((started.durationMinutes || exam.durationMinutes || 45) * 60);
+      setIsTakingExam(true);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Exam shuru nahi ho saka.');
+    }
   };
 
   const handleSelectAnswer = (questionId: string, optionId: string) => {
@@ -149,11 +202,11 @@ export const StudentFinalExamPage: React.FC = () => {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const res = await AssessmentService.submitFinalExamAttempt(
-        user.id,
-        exam.id,
+      const r = await AssessmentService.submitStudentAssessment('exam', exam.id, userAnswers);
+      const res = mapAttempt(
+        { score: r.score, max_score: r.maxScore, percentage: r.percentage, passed: r.passed, attempt_number: r.attemptNumber },
         selectedCourse.id,
-        userAnswers
+        r.passingPercentage
       );
       setLatestResult(res);
       setIsTakingExam(false);
@@ -489,7 +542,7 @@ export const StudentFinalExamPage: React.FC = () => {
                   {isRoman ? 'Kul Sawalat' : 'Questions'}
                 </span>
                 <span className="text-base font-bold text-slate-800">
-                  {questions.length} Items
+                  {questionCount} Items
                 </span>
               </div>
 
@@ -540,7 +593,7 @@ export const StudentFinalExamPage: React.FC = () => {
                         : 'All available examination attempts have been used.'}
                     </span>
                   </p>
-                ) : questions.length === 0 ? (
+                ) : questionCount === 0 ? (
                   <p className="text-xs font-semibold text-amber-700 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-600" />
                     <span>
@@ -571,7 +624,7 @@ export const StudentFinalExamPage: React.FC = () => {
                     variant="primary"
                     size="md"
                     onClick={handleStartExam}
-                    disabled={questions.length === 0}
+                    disabled={questionCount === 0}
                     className="bg-[#1F3FBF] hover:bg-[#0F1F5C]"
                   >
                     <GraduationCap className="w-4 h-4 mr-1.5" />

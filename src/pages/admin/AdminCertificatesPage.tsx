@@ -60,6 +60,41 @@ export const AdminCertificatesPage: React.FC = () => {
     grade: '',
   });
 
+  const [showIssueOnlineModal, setShowIssueOnlineModal] = useState(false);
+  const [onlineRows, setOnlineRows] = useState<any[]>([]);
+  const [onlineSearch, setOnlineSearch] = useState('');
+
+  const openIssueOnline = async () => {
+    setMsgError(null);
+    setShowIssueOnlineModal(true);
+    try {
+      setOnlineRows(await CertificateService.getOnlineEnrollmentsForCertificates());
+    } catch (err: any) {
+      setMsgError(err.message || 'Online students load nahi ho sake.');
+    }
+  };
+
+  const handleIssueOnline = async (row: any) => {
+    setActionLoading(true);
+    setMsgError(null);
+    try {
+      const cert = await CertificateService.issueOnlineCertificateByAdmin({
+        userId: row.userId,
+        courseId: row.courseId,
+        courseTitle: row.courseTitle,
+        recipientName: row.studentName,
+        scorePercentage: row.bestPercentage,
+      });
+      setMsgSuccess(`Online certificate ${cert.certificateCode || ''} jari ho gaya!`);
+      setShowIssueOnlineModal(false);
+      await loadData();
+    } catch (err: any) {
+      setMsgError(err.message || 'Certificate issue karne mein masla aaya.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [revokingCert, setRevokingCert] = useState<CertificateRecord | null>(null);
   const [revocationReason, setRevocationReason] = useState('');
@@ -186,6 +221,15 @@ export const AdminCertificatesPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={openIssueOnline}
+            className="bg-emerald-600 hover:bg-emerald-700 text-xs"
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            {isRoman ? 'Online Sanad Jari Karein' : 'Issue Online Certificate'}
+          </Button>
           <Button
             variant="primary"
             size="md"
@@ -431,6 +475,58 @@ export const AdminCertificatesPage: React.FC = () => {
             </div>
 
             <CertificateView certificate={viewingCert} showActions={true} />
+          </div>
+        </div>
+      )}
+
+      {/* ISSUE ONLINE CERTIFICATE MODAL */}
+      {showIssueOnlineModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-[#0F1F5C]">
+                {isRoman ? 'Online Student Ki Sanad Jari Karein' : 'Issue Online Certificate'}
+              </h3>
+              <button onClick={() => setShowIssueOnlineModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <Input
+              placeholder={isRoman ? 'Student ya course dhoondein...' : 'Search student or course...'}
+              value={onlineSearch}
+              onChange={(e) => setOnlineSearch(e.target.value)}
+            />
+            <div className="space-y-2">
+              {onlineRows
+                .filter((r) =>
+                  `${r.studentName} ${r.studentEmail} ${r.courseTitle}`.toLowerCase().includes(onlineSearch.toLowerCase())
+                )
+                .map((r) => (
+                  <div key={`${r.userId}-${r.courseId}`} className="p-3 border border-slate-200 rounded-xl flex items-center justify-between gap-3 text-xs">
+                    <div>
+                      <div className="font-bold text-slate-800">{r.studentName}</div>
+                      <div className="text-slate-500">{r.studentEmail} · {r.courseTitle}</div>
+                      <div className="mt-1">
+                        {r.examAttempts === 0
+                          ? (isRoman ? 'Final exam abhi nahi diya' : 'No final exam attempt yet')
+                          : `${isRoman ? 'Best score' : 'Best score'}: ${r.bestPercentage}% ${r.passedExam ? '✔ pass' : '✘ not passed'}`}
+                      </div>
+                    </div>
+                    {r.existingCertificateCode ? (
+                      <Badge variant="success" size="sm">{r.existingCertificateCode}</Badge>
+                    ) : (
+                      <Button variant="primary" size="sm" disabled={actionLoading} onClick={() => handleIssueOnline(r)} className="bg-[#1F3FBF]">
+                        {isRoman ? 'Sanad Jari Karein' : 'Issue'}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              {onlineRows.length === 0 && (
+                <p className="text-xs text-slate-500 text-center py-6">
+                  {isRoman ? 'Koi enrolled online student nahi mila.' : 'No enrolled online students found.'}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -226,6 +226,75 @@ export const CertificateService = {
   },
 
   /**
+   * Admin: list online enrollments (student + course + best final-exam %) so a certificate can be issued.
+   */
+  async getOnlineEnrollmentsForCertificates(): Promise<any[]> {
+    if (!(isSupabaseConfigured && supabase)) return [];
+    const { data: enr, error } = await supabase
+      .from('student_enrollments')
+      .select('user_id, course_id, status, courses:course_id(title), profiles:user_id(full_name, email)');
+    if (error) throw new Error(error.message);
+    const rows = enr || [];
+    const { data: att } = await supabase
+      .from('final_exam_attempts')
+      .select('user_id, course_id, percentage, passed');
+    const { data: certs } = await supabase
+      .from('certificates')
+      .select('user_id, course_id, certificate_code, status')
+      .eq('student_type', 'online');
+    return rows.map((r: any) => {
+      const mine = (att || []).filter((a: any) => a.user_id === r.user_id && a.course_id === r.course_id);
+      const best = mine.reduce((m: number, a: any) => Math.max(m, Number(a.percentage) || 0), 0);
+      const existing = (certs || []).find(
+        (c: any) => c.user_id === r.user_id && c.course_id === r.course_id && c.status === 'valid'
+      );
+      return {
+        userId: r.user_id,
+        courseId: r.course_id,
+        studentName: r.profiles?.full_name || r.profiles?.email || 'Student',
+        studentEmail: r.profiles?.email || '',
+        courseTitle: r.courses?.title || 'Course',
+        status: r.status,
+        examAttempts: mine.length,
+        bestPercentage: mine.length ? best : null,
+        passedExam: mine.some((a: any) => a.passed),
+        existingCertificateCode: existing?.certificate_code || null,
+      };
+    });
+  },
+
+  /**
+   * Admin: issue an online certificate through the staff API (admin decides; exam result is informational).
+   */
+  async issueOnlineCertificateByAdmin(input: {
+    userId: string;
+    courseId: string;
+    courseTitle: string;
+    recipientName: string;
+    scorePercentage?: number | null;
+  }): Promise<CertificateRecord> {
+    const session = supabase ? (await supabase.auth.getSession()).data.session : null;
+    const score = input.scorePercentage ?? undefined;
+    const res = await fetch('/api/admin/certificates/issue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+      body: JSON.stringify({
+        studentType: 'online',
+        userId: input.userId,
+        courseId: input.courseId,
+        courseTitle: input.courseTitle,
+        recipientName: input.recipientName,
+        scorePercentage: score,
+        finalGrade: score ? calculateGrade(score) : 'Certified Graduate',
+      }),
+    });
+    let data: any = null;
+    try { data = await res.json(); } catch { /* ignore */ }
+    if (!res.ok || !data?.ok) throw new Error(data?.error || `Certificate issue nahi ho saka (${res.status}).`);
+    return data.certificate;
+  },
+
+  /**
    * Issue Online Certificate
    */
   async issueOnlineCertificate(
