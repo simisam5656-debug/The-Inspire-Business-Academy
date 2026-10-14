@@ -58,6 +58,7 @@ export const PhysicalJoinPage: React.FC = () => {
   const [coursesError, setCoursesError] = useState<string | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState<string>(siteConfig.whatsapp);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submittedRef, setSubmittedRef] = useState<string | null>(null);
 
@@ -157,6 +158,8 @@ export const PhysicalJoinPage: React.FC = () => {
     e.preventDefault();
     setErrorMessage(null);
 
+    if (honeypot) return; // bot
+
     if (isFormDisabled) {
       setErrorMessage(
         isRoman
@@ -211,6 +214,7 @@ export const PhysicalJoinPage: React.FC = () => {
         courseTitle: chosenCourseTitle,
         batchPreference: batchPreference,
         notes: notes.trim() || undefined,
+        website: honeypot,
       };
 
       // 1) Preferred path: server API (validation + duplicate check).
@@ -289,7 +293,7 @@ export const PhysicalJoinPage: React.FC = () => {
     } catch (err: any) {
       setErrorMessage(
         isRoman
-          ? 'Server se rabta nahi ho saka. Connection check karein ya direct WhatsApp 0309-3534289 par rabta karein.'
+          ? 'Server se rabta nahi ho saka. Connection check karein ya direct WhatsApp par rabta karein.'
           : 'Connection error. Please check your network or contact WhatsApp helpline directly.'
       );
     } finally {
@@ -439,6 +443,16 @@ export const PhysicalJoinPage: React.FC = () => {
                   ) : (
                     /* Submission Form */
                     <form onSubmit={handleSubmit} className="space-y-4">
+                      <input
+                        type="text"
+                        name="website"
+                        value={honeypot}
+                        onChange={(e) => setHoneypot(e.target.value)}
+                        tabIndex={-1}
+                        autoComplete="off"
+                        aria-hidden="true"
+                        className="absolute left-[-9999px] h-0 w-0 opacity-0"
+                      />
                       {coursesLoading && (
                         <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center gap-2 text-xs text-[#1F3FBF]">
                           <Spinner size="sm" />
@@ -550,7 +564,7 @@ export const PhysicalJoinPage: React.FC = () => {
                         {!sameAsPhone && (
                           <Input
                             label={isRoman ? 'Alag WhatsApp Number' : 'Alternate WhatsApp Number'}
-                            placeholder="0309-3534289"
+                            placeholder="03XX-XXXXXXX"
                             value={whatsapp}
                             onChange={(e) => setWhatsapp(e.target.value)}
                             disabled={isFormDisabled || isSubmitting}

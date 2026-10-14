@@ -79,11 +79,11 @@ describe('Prompt 12 — Secure Cloudflare Workers AI Integration Tests', () => {
   // SECTION 1: Public Chatbot API (/api/ai/chat)
   // ========================================================
   describe('1. Public Chatbot Endpoint (/api/ai/chat)', () => {
-    test('1.1. Rejects non-POST requests with HTTP 405 and Allow header', async () => {
+    test('1.1. Rejects unsupported methods with HTTP 405 and Allow header (GET is a diagnostics endpoint)', async () => {
       const res = createNodeResponseMock();
-      await chatHandler({ method: 'GET', body: {}, headers: {} }, res);
+      await chatHandler({ method: 'PUT', body: {}, headers: {} }, res);
       assert.equal(res._getStatusCode(), 405);
-      assert.equal(res._getHeaders()['allow'], 'POST');
+      assert.equal(res._getHeaders()['allow'], 'GET, POST');
       const json = JSON.parse(res._getBody());
       assert.equal(json.ok, false);
       assert.equal(json.error, 'Method Not Allowed');
@@ -188,7 +188,7 @@ describe('Prompt 12 — Secure Cloudflare Workers AI Integration Tests', () => {
       assert.equal(JSON.stringify(json).includes('illegal-id'), false);
     });
 
-    test('1.5. Unconfigured provider returns HTTP 503 with safe error, never crashing', async () => {
+    test('1.5. Unconfigured provider returns HTTP 200 with ok:false + friendlyReply (no red 500), never crashing', async () => {
       const res = createNodeResponseMock();
       const req = {
         method: 'POST',
@@ -198,10 +198,10 @@ describe('Prompt 12 — Secure Cloudflare Workers AI Integration Tests', () => {
       };
 
       await chatHandler(req, res);
-      assert.equal(res._getStatusCode(), 503);
+      assert.equal(res._getStatusCode(), 200);
       const json = JSON.parse(res._getBody());
       assert.equal(json.ok, false);
-      assert.match(json.error, /Workers AI/i);
+      assert.ok(typeof json.friendlyReply === 'string' && json.friendlyReply.length > 0);
       assert.ok(json.correlationId);
     });
   });
@@ -432,11 +432,12 @@ describe('Prompt 12 — Secure Cloudflare Workers AI Integration Tests', () => {
         };
 
         await chatHandler(req, res);
-        assert.equal(res._getStatusCode(), 500);
+        // Provider failures return HTTP 200 + ok:false + friendlyReply so the browser never shows a red 500
+        assert.equal(res._getStatusCode(), 200);
 
         const json = JSON.parse(res._getBody());
         assert.equal(json.ok, false);
-        assert.equal(json.error, 'Workers AI inference failed.');
+        assert.ok(typeof json.friendlyReply === 'string' && json.friendlyReply.length > 0);
         assert.ok(json.correlationId);
 
         // Client response must NEVER contain sentinel secret or internal paths

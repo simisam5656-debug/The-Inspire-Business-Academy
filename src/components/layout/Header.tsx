@@ -8,12 +8,14 @@ import { IconButton } from '../ui/IconButton';
 import { LanguageSelector } from '../ui/LanguageSelector';
 import { useTranslation } from '../../i18n';
 import { siteConfig } from '../../config/site';
+import { useSiteContact } from '../../hooks/useSiteContact';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { CmsService } from '../../services/cmsService';
 import { NoticeRecord } from '../../types';
 
 export const Header: React.FC = () => {
+  const contact = useSiteContact();
   const { language, t } = useTranslation();
   const isRoman = language === 'roman-urdu';
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -81,13 +83,13 @@ export const Header: React.FC = () => {
 
             <div className="flex items-center gap-4 shrink-0 text-white/90">
               <a
-                href={`https://wa.me/92${siteConfig.whatsapp.replace(/[^0-9]/g, '').slice(1)}`}
+                href={`https://wa.me/${contact.waDigits}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 hover:text-[#FFC20E] transition-colors"
               >
                 <Phone className="w-3.5 h-3.5 text-[#FFC20E]" />
-                <span className="font-semibold">WhatsApp: {siteConfig.whatsapp}</span>
+                <span className="font-semibold">WhatsApp: {contact.whatsapp}</span>
               </a>
               <span className="text-white/30" aria-hidden="true">|</span>
               <LanguageSelector />

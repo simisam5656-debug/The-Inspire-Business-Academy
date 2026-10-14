@@ -3,6 +3,7 @@ import { X, Phone, ArrowRight, User, ShieldCheck } from 'lucide-react';
 import { NavLink } from './NavLink';
 import { useTranslation } from '../../i18n';
 import { siteConfig } from '../../config/site';
+import { useSiteContact } from '../../hooks/useSiteContact';
 import { Brand } from '../branding/Brand';
 import { Button } from '../ui/Button';
 import { LanguageSelector } from '../ui/LanguageSelector';
@@ -15,6 +16,7 @@ export interface MobileNavProps {
 }
 
 export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
+  const contact = useSiteContact();
   const { t } = useTranslation();
   const drawerRef = useRef<HTMLDivElement>(null);
 
@@ -127,13 +129,13 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
           </div>
 
           <a
-            href={`https://wa.me/92${siteConfig.whatsapp.replace(/[^0-9]/g, '').slice(1)}`}
+            href={`https://wa.me/${contact.waDigits}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-1.5 pt-2 text-xs font-semibold text-[#1F3FBF] hover:underline"
           >
             <Phone className="w-3.5 h-3.5 text-emerald-600" />
-            <span>WhatsApp: {siteConfig.whatsapp}</span>
+            <span>WhatsApp: {contact.whatsapp}</span>
           </a>
         </div>
       </div>

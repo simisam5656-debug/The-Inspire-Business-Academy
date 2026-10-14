@@ -52,7 +52,13 @@ export default async function handler(req: any, res: any, dbClient?: any) {
       batchPreference,
       notes,
       userId,
+      website, // honeypot: real users never fill this hidden field
     } = body;
+
+    if (typeof website === 'string' && website.trim() !== '') {
+      // Bot detected: pretend success without storing anything
+      return res.status(201).json({ ok: true, referenceNumber: generateReferenceNumber(), message: 'Received.' });
+    }
 
     // 1. Validate admissionType
     if (admissionType !== 'physical' && admissionType !== 'online') {
@@ -204,7 +210,7 @@ export default async function handler(req: any, res: any, dbClient?: any) {
         console.error('Database insert error:', insertError.message);
         return res.status(500).json({
           ok: false,
-          error: 'Dakhla darj karne mein masla pesh aya. Baraye meharbani WhatsApp helpline 0309-3534289 par rabta karein.',
+          error: 'Dakhla darj karne mein masla pesh aya. Baraye meharbani WhatsApp helpline par rabta karein.',
         });
       }
 

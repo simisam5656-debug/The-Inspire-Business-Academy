@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
 import { AdminService } from '../../services/adminService';
 import { EnrollmentService } from '../../services/enrollmentService';
+import { CourseService } from '../../services/courseService';
 import {
   GraduationCap,
   Search,
@@ -68,6 +69,48 @@ export const AdminOnlineStudentsPage: React.FC = () => {
   const [editCity, setEditCity] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+
+  // Manual enroll (admin grants a course without payment, e.g. cash payment)
+  const [enrollModalOpen, setEnrollModalOpen] = useState(false);
+  const [enrollCourses, setEnrollCourses] = useState<any[]>([]);
+  const [enrollCourseId, setEnrollCourseId] = useState('');
+  const [enrollReason, setEnrollReason] = useState('');
+
+  const openEnrollModal = async () => {
+    setEnrollReason('');
+    setEnrollModalOpen(true);
+    try {
+      const list = await CourseService.getAllCourses();
+      setEnrollCourses(list);
+      setEnrollCourseId(list[0]?.id || '');
+    } catch {
+      setEnrollCourses([]);
+    }
+  };
+
+  const handleConfirmEnroll = async () => {
+    if (!studentDetail?.profile?.id || !enrollCourseId) return;
+    try {
+      setActionLoading(true);
+      const res = await EnrollmentService.manualGrantAccess(
+        studentDetail.profile.id,
+        enrollCourseId,
+        enrollReason.trim() || 'Manual enrollment by admin'
+      );
+      if (!res.ok) {
+        setFeedbackToast({ type: 'error', message: res.error || 'Enroll nahi ho saka.' });
+        return;
+      }
+      setFeedbackToast({ type: 'success', message: isRoman ? 'Student course mein enroll ho gaya.' : 'Student enrolled in course.' });
+      setEnrollModalOpen(false);
+      await handleOpenDetail(studentDetail.profile.id);
+      await loadOnlineStudents();
+    } catch (err: any) {
+      setFeedbackToast({ type: 'error', message: err?.message || 'Enroll nahi ho saka.' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // Action toast / feedback banner
   const [feedbackToast, setFeedbackToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -679,7 +722,77 @@ export const AdminOnlineStudentsPage: React.FC = () => {
                   >
                     {isRoman ? 'Payment Record Par Jayein' : 'Go to Payment'}
                   </Button>
+
+                  {/* Manual enroll */}
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={openEnrollModal}
+                    className="bg-[#1F3FBF] hover:bg-[#0F1F5C] font-semibold"
+                    leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  >
+                    {isRoman ? 'Course Enroll Karein' : 'Enroll in Course'}
+                  </Button>
                 </div>
+
+                {enrollModalOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+                    <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <h3 className="text-base font-bold text-[#0F1F5C]">
+                          {isRoman ? 'Student Ko Course Dein' : 'Enroll Student in Course'}
+                        </h3>
+                        <button onClick={() => setEnrollModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="space-y-3 text-xs">
+                        <div>
+                          <label className="font-semibold text-slate-700 block mb-1">Course</label>
+                          <select
+                            value={enrollCourseId}
+                            onChange={(e) => setEnrollCourseId(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white"
+                          >
+                            {enrollCourses.map((c) => (
+                              <option key={c.id} value={c.id}>{c.title}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="font-semibold text-slate-700 block mb-1">
+                            {isRoman ? 'Wajah (jaise cash payment)' : 'Reason (e.g. cash payment)'}
+                          </label>
+                          <input
+                            value={enrollReason}
+                            onChange={(e) => setEnrollReason(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                            placeholder="Cash payment received"
+                          />
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          {isRoman
+                            ? 'Access ki muddat course ke default ke mutabiq lagegi aur audit log mein record hoga.'
+                            : 'Access uses the default duration and is recorded in the audit log.'}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setEnrollModalOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="bg-[#1F3FBF]"
+                          disabled={actionLoading || !enrollCourseId}
+                          onClick={handleConfirmEnroll}
+                        >
+                          {isRoman ? 'Enroll Karein' : 'Enroll'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Edit Profile Form Drawer Section */}
                 {isEditingProfile && (
