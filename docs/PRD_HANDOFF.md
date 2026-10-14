@@ -51,14 +51,16 @@ Kaam rukna nahi chahiye: naya Claude Section 5 ke pehle open item se shuru kare.
 |---|---|
 | Online join page crash (`discountAmount`) fix, pricing | PR #1 merged |
 | Student quizzes + final exams server-graded API, admin "New Final Exam", admin online certificate issue, classroom fake quiz removed | PR #2 merged |
-| Round 3: certificate verify (RPC), student certificate claim (RPC), progress bar (RPC), admin online-cert list fix, audit log real actor, physical admission fallback, course-request screenshot, Terms + Refund pages | **PR #3 — merge + SQL pending (Section 6)** |
+| Round 3: certificate verify (RPC), student certificate claim (RPC), progress bar (RPC), admin online-cert list fix, audit log real actor, physical admission fallback, course-request screenshot, Terms + Refund pages | PR #3 merged, SQL chal chuka, user ne live confirm kiya (15 Oct 2026) |
 | Lessons student ko dikhte hain (RLS policies `enrolled_students_can_view_lessons`) | live |
 | Chatbot (Workers AI) Cloudflare par chal raha hai | live |
 | `online_payments` columns, proof bucket limit, `site_settings_public` insert policy | live |
 
 ## 5. Open issues / baqi kaam (priority order)
 
-1. **PR #3 test + physical registration confirm.** Agar physical form ab bhi fail ho to user se form par nazar aane wala exact red error text lein (ya browser Network tab mein `/api/admissions/submit` ka status + response). Fallback ab direct pending insert karta hai.
+> **Naya roadmap `docs/PRD_V4_ROADMAP.md` mein hai (Phase 1–6: safety, offers/promo, student profile + portfolio URL + WhatsApp sawal, notifications, device lock, AI Studio, reliability). Naya Claude wahan se Phase 1 se shuru kare. Neeche ki list purani hai; jo items v4 mein hain wahan dekhein.**
+
+1. ~~PR #3 test~~ (user ne confirm kiya: certificate, registration, additional course sab theek). Purani note: Agar physical form ab bhi fail ho to user se form par nazar aane wala exact red error text lein (ya browser Network tab mein `/api/admissions/submit` ka status + response). Fallback ab direct pending insert karta hai.
 2. **Course request (additional course) confirm.** Wajah mili: screenshot "optional" likha tha lekin zaroori tha aur error modal ke upar chhup jata tha. Ab fix hai; user se test karwayein.
 3. **Student ka progress** (Dashboard "Course Completion"/"Current Progress") — `update_my_course_progress` function ke baad verify karein.
 4. **Admin "Enroll student" / manual payment buttons** (admin khud student ko course de sake).
