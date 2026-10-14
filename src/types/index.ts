@@ -56,6 +56,7 @@ export interface ManagerPermission {
 export interface AuditLogEntry {
   id: string;
   actorId: string;
+  actorName?: string;
   actorRole: UserRole;
   action: string;
   entity: string;

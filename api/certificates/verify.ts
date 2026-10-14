@@ -53,12 +53,24 @@ export default async function handler(req: any, res: any, dbClient?: any) {
 
     const supabase = dbClient || createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
-    // Query authoritative certificate record (non-sensitive verification columns only)
-    const { data: cert, error } = await supabase
-      .from('certificates')
-      .select('certificate_code, recipient_name, course_title, course_titles, duration_text, completion_date, student_type, issue_date, score_percentage, final_grade, status, revoked_at, revocation_reason')
-      .or(`certificate_code.eq.${identifier},verification_token.eq.${identifier}`)
-      .maybeSingle();
+    // Query authoritative certificate record (non-sensitive verification columns only).
+    // Anonymous visitors cannot read the certificates table (RLS), so the live DB is queried
+    // through the SECURITY DEFINER function verify_certificate(). Injected test clients use .from().
+    let cert: any = null;
+    let error: any = null;
+    if (typeof supabase.rpc === 'function' && !dbClient) {
+      const rpcRes = await supabase.rpc('verify_certificate', { p_identifier: identifier });
+      cert = rpcRes.data || null;
+      error = rpcRes.error;
+    } else {
+      const res2 = await supabase
+        .from('certificates')
+        .select('certificate_code, recipient_name, course_title, course_titles, duration_text, completion_date, student_type, issue_date, score_percentage, final_grade, status, revoked_at, revocation_reason')
+        .or(`certificate_code.eq.${identifier},verification_token.eq.${identifier}`)
+        .maybeSingle();
+      cert = res2.data;
+      error = res2.error;
+    }
 
     if (error) {
       return res.status(500).json({

@@ -2241,10 +2241,24 @@ export const CmsService = {
 
         const { data, error } = await query;
         if (!error && data) {
+          // Resolve the real actor (name + current role) from profiles
+          const actorIds = Array.from(new Set(data.map((d: any) => d.actor_id).filter(Boolean)));
+          const actorMap = new Map<string, { name: string; role: string }>();
+          if (actorIds.length > 0) {
+            const { data: profs } = await supabase
+              .from('profiles')
+              .select('id, full_name, email, role')
+              .in('id', actorIds as string[]);
+            (profs || []).forEach((p: any) =>
+              actorMap.set(p.id, { name: p.full_name || p.email || '', role: p.role })
+            );
+          }
+
           let results: AuditLogEntry[] = data.map((d: any) => ({
             id: d.id,
             actorId: d.actor_id,
-            actorRole: d.actor_role,
+            actorName: actorMap.get(d.actor_id)?.name,
+            actorRole: (actorMap.get(d.actor_id)?.role || d.actor_role) as any,
             action: d.action,
             entity: d.entity,
             entityId: d.entity_id,

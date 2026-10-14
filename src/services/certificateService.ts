@@ -232,9 +232,15 @@ export const CertificateService = {
     if (!(isSupabaseConfigured && supabase)) return [];
     const { data: enr, error } = await supabase
       .from('student_enrollments')
-      .select('user_id, course_id, status, courses:course_id(title), profiles:user_id(full_name, email)');
+      .select('user_id, course_id, status, courses:course_id(title)');
     if (error) throw new Error(error.message);
     const rows = enr || [];
+    // student_enrollments.user_id points to auth.users (not profiles), so fetch names separately.
+    const userIds = Array.from(new Set(rows.map((r: any) => r.user_id)));
+    const { data: profs } = userIds.length
+      ? await supabase.from('profiles').select('id, full_name, email').in('id', userIds)
+      : { data: [] as any[] };
+    const profById = new Map((profs || []).map((p: any) => [p.id, p]));
     const { data: att } = await supabase
       .from('final_exam_attempts')
       .select('user_id, course_id, percentage, passed');
@@ -251,8 +257,8 @@ export const CertificateService = {
       return {
         userId: r.user_id,
         courseId: r.course_id,
-        studentName: r.profiles?.full_name || r.profiles?.email || 'Student',
-        studentEmail: r.profiles?.email || '',
+        studentName: profById.get(r.user_id)?.full_name || profById.get(r.user_id)?.email || 'Student',
+        studentEmail: profById.get(r.user_id)?.email || '',
         courseTitle: r.courses?.title || 'Course',
         status: r.status,
         examAttempts: mine.length,
@@ -356,46 +362,18 @@ export const CertificateService = {
     };
 
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
-        .from('certificates')
-        .insert({
-          certificate_code: certificateCode,
-          verification_token: verificationToken,
-          student_type: 'online',
-          user_id: userId,
-          course_id: courseId,
-          course_title: eligibility.courseTitle,
-          recipient_name: studentName,
-          recipient_email: studentEmail,
-          score_percentage: scorePercentage,
-          final_grade: finalGrade,
-          exam_attempt_id: eligibility.passedExamAttempt?.id,
-          issue_date: today,
-          status: 'valid',
-          issued_by: actorId,
-        })
-        .select()
-        .single();
-
+      // Students cannot INSERT into certificates (RLS). The database function re-checks
+      // enrollment + passed final exam and creates the certificate.
+      const { data, error } = await supabase.rpc('claim_online_certificate', { p_course_id: courseId });
       if (error) throw new Error(error.message);
-      newCert.id = data.id;
-
-      // Audit Log
-      try {
-        await supabase.from('audit_logs').insert({
-          actor_id: actorId,
-          actor_role: actorRole,
-          action: 'issue_online_certificate',
-          entity: 'certificates',
-          entity_id: data.id,
-          details: {
-            certificateCode,
-            studentName,
-            courseTitle: eligibility.courseTitle,
-            scorePercentage,
-          },
-        });
-      } catch (_) {}
+      const row: any = data;
+      newCert.id = row.id;
+      newCert.certificateCode = row.certificate_code;
+      newCert.verificationToken = row.verification_token;
+      newCert.recipientName = row.recipient_name;
+      newCert.scorePercentage = row.score_percentage ? Number(row.score_percentage) : newCert.scorePercentage;
+      newCert.finalGrade = row.final_grade;
+      newCert.issueDate = row.issue_date;
     } else {
       fallbackCertificatesStore.push(newCert);
     }
