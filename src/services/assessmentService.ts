@@ -399,6 +399,69 @@ export const AssessmentService = {
     return found || null;
   },
 
+  async createFinalExam(
+    payload: Partial<FinalExamRecord> & { courseId: string; title: string },
+    actorId?: string,
+    actorRole?: string
+  ): Promise<void> {
+    const pass = Number(payload.passingPercentage ?? 70);
+    if (isNaN(pass) || pass < 30 || pass > 100) {
+      throw new Error('Passing mark must be between 30% and 100%.');
+    }
+    if (!payload.courseId) throw new Error('Course select karna zaroori hai.');
+    if (!payload.title?.trim()) throw new Error('Exam ka title likhna zaroori hai.');
+
+    if (isSupabaseConfigured && supabase) {
+      const { data: existing } = await supabase
+        .from('final_exams').select('id').eq('course_id', payload.courseId).maybeSingle();
+      if (existing) throw new Error('Is course ka Final Exam pehle se majood hai. Usay edit karein.');
+
+      const { data, error } = await supabase
+        .from('final_exams')
+        .insert({
+          course_id: payload.courseId,
+          title: payload.title.trim(),
+          title_roman_urdu: payload.titleRomanUrdu?.trim() || payload.title.trim(),
+          description: payload.description || null,
+          instructions: payload.instructions || null,
+          duration_minutes: Number(payload.durationMinutes ?? 45),
+          passing_percentage: pass,
+          attempt_limit: Number(payload.attemptLimit ?? 2),
+          is_published: payload.isPublished ?? true,
+        })
+        .select('id')
+        .single();
+      if (error) throw new Error(error.message);
+
+      if (actorId) {
+        try {
+          await supabase.from('audit_logs').insert({
+            actor_id: actorId,
+            actor_role: actorRole || 'super_admin',
+            action: 'create_final_exam',
+            entity: 'final_exams',
+            entity_id: data?.id,
+            details: { courseId: payload.courseId, title: payload.title },
+          });
+        } catch (_) {}
+      }
+      return;
+    }
+
+    fallbackFinalExamsStore.push({
+      id: `fe-${Date.now()}`,
+      courseId: payload.courseId,
+      title: payload.title,
+      durationMinutes: Number(payload.durationMinutes ?? 45),
+      passingPercentage: pass,
+      attemptLimit: Number(payload.attemptLimit ?? 2),
+      isPublished: payload.isPublished ?? true,
+      questionCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as FinalExamRecord);
+  },
+
   async updateFinalExam(
     id: string,
     payload: Partial<FinalExamRecord>,
@@ -772,6 +835,36 @@ export const AssessmentService = {
 
     fallbackExamAttemptsStore.push(record);
     return record;
+  },
+
+  // ============================================================================
+  // STUDENT SIDE (server-graded; answer keys never reach the browser)
+  // ============================================================================
+  async studentApi(body: Record<string, any>): Promise<any> {
+    const session = supabase ? (await supabase.auth.getSession()).data.session : null;
+    const res = await fetch('/api/student/assessments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+      body: JSON.stringify(body),
+    });
+    let data: any = null;
+    try { data = await res.json(); } catch { /* non-JSON response */ }
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || `Server error (${res.status}). /api sirf Cloudflare par chalta hai.`);
+    }
+    return data;
+  },
+
+  listStudentAssessments(): Promise<{ quizzes: any[]; exams: any[] }> {
+    return this.studentApi({ action: 'list' });
+  },
+
+  startStudentAssessment(kind: 'quiz' | 'exam', id: string): Promise<any> {
+    return this.studentApi({ action: 'start', kind, id });
+  },
+
+  submitStudentAssessment(kind: 'quiz' | 'exam', id: string, answers: Record<string, string>): Promise<any> {
+    return this.studentApi({ action: 'submit', kind, id, answers });
   },
 };
 

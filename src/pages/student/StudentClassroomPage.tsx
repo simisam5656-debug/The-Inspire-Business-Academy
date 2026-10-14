@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
 import { CourseService } from '../../services/courseService';
@@ -150,8 +151,12 @@ export const StudentClassroomPage: React.FC = () => {
 
       // Fetch student progress
       if (user?.id) {
-        const prog = await StudentLmsService.getLessonProgress(user.id, courseId);
-        setProgressMap(prog);
+        try {
+          const prog = await StudentLmsService.getLessonProgress(user.id, courseId);
+          setProgressMap(prog);
+        } catch (progErr) {
+          console.warn('Lesson progress load failed (lessons still shown):', progErr);
+        }
       }
 
       // Pick active lesson: initial requested or first uncompleted or first lesson
@@ -191,17 +196,6 @@ export const StudentClassroomPage: React.FC = () => {
         setPersonalNote('');
       }
 
-      // Fetch quiz and latest attempt
-      const quiz = StudentLmsService.getLessonQuiz(lesson.id);
-      setQuizQuestions(quiz);
-      const attempt = await StudentLmsService.getLatestQuizAttempt(user.id, lesson.id);
-      if (attempt) {
-        setQuizResult(attempt);
-        setSelectedAnswers(attempt.userAnswers || {});
-      } else {
-        setQuizResult(null);
-        setSelectedAnswers({});
-      }
     }
   };
 
@@ -692,99 +686,21 @@ export const StudentClassroomPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Tab 4: Knowledge Quiz */}
+              {/* Tab 4: Knowledge Quiz (real quizzes are served by the server) */}
               {activeTab === 'quiz' && (
-                <div className="space-y-5 pt-1">
-                  <div className="bg-purple-50 border border-purple-200 rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2 text-purple-900 font-bold">
-                      <Award className="w-4 h-4 text-purple-600" />
-                      <span>{isRoman ? '70% Pass Requirement' : 'Knowledge Check (70% Pass Required)'}</span>
-                    </div>
-                    {quizResult && (
-                      <Badge variant={quizResult.passed ? 'success' : 'warning'} size="sm">
-                        {quizResult.passed ? 'Passed' : 'Needs Review'} ({quizResult.score}/{quizResult.maxScore})
-                      </Badge>
-                    )}
-                  </div>
-
-                  {quizQuestions.map((q, idx) => (
-                    <div key={q.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                      <div className="text-xs font-bold text-[#0F1F5C]">
-                        {idx + 1}. {isRoman ? q.questionRoman : q.questionEn}
-                      </div>
-
-                      <div className="space-y-2">
-                        {q.options.map((opt) => {
-                          const isSelected = selectedAnswers[q.id] === opt.id;
-                          const isCorrect = q.correctOptionId === opt.id;
-                          const showResult = !!quizResult;
-
-                          let btnClasses = 'border-slate-200 bg-white text-slate-700 hover:border-slate-300';
-                          if (isSelected) {
-                            btnClasses = 'border-[#1F3FBF] bg-blue-50/70 text-[#0F1F5C] font-semibold';
-                          }
-                          if (showResult) {
-                            if (isCorrect) {
-                              btnClasses = 'border-emerald-500 bg-emerald-50 text-emerald-900 font-bold';
-                            } else if (isSelected && !isCorrect) {
-                              btnClasses = 'border-red-500 bg-red-50 text-red-900 font-medium';
-                            }
-                          }
-
-                          return (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              onClick={() => {
-                                if (!quizResult) {
-                                  setSelectedAnswers((prev) => ({ ...prev, [q.id]: opt.id }));
-                                }
-                              }}
-                              className={`w-full text-left p-2.5 rounded-lg border text-xs flex items-center justify-between transition-colors ${btnClasses}`}
-                            >
-                              <span>{isRoman ? opt.textRoman : opt.textEn}</span>
-                              {showResult && isCorrect && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {quizResult && (
-                        <div className="text-[11px] p-2.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-100">
-                          <span className="font-bold">{isRoman ? 'Wazahat: ' : 'Explanation: '}</span>
-                          {isRoman ? q.explanationRoman : q.explanationEn}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  <div className="flex items-center justify-between pt-2">
-                    {quizResult ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setQuizResult(null);
-                          setSelectedAnswers({});
-                        }}
-                        className="text-xs"
-                      >
-                        {isRoman ? 'Dobara Hal Karein' : 'Retake Quiz'}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={handleSubmitQuiz}
-                        disabled={submittingQuiz || Object.keys(selectedAnswers).length === 0}
-                        className="bg-[#1F3FBF] hover:bg-[#0F1F5C] text-xs font-bold"
-                      >
-                        {submittingQuiz
-                          ? isRoman ? 'Check ho raha hai...' : 'Grading...'
-                          : isRoman ? 'Quiz Submit Karein' : 'Submit Answers'}
-                      </Button>
-                    )}
-                  </div>
+                <div className="space-y-4 pt-1 text-center py-6">
+                  <Award className="w-10 h-10 text-purple-600 mx-auto" />
+                  <p className="text-sm font-bold text-[#0F1F5C]">
+                    {isRoman ? 'Quizzes ke liye Quizzes page kholein' : 'Take your quizzes on the Quizzes page'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {isRoman
+                      ? 'Admin ke publish kiye hue quizzes wahan nazar aate hain.'
+                      : 'Quizzes published by your instructor appear there.'}
+                  </p>
+                  <Link to="/student/quizzes" className="inline-block text-xs font-bold text-white bg-[#1F3FBF] px-4 py-2 rounded-lg">
+                    {isRoman ? 'Quizzes Dekhein' : 'Open Quizzes'}
+                  </Link>
                 </div>
               )}
             </div>
