@@ -9,7 +9,7 @@
 > Official YouTube: [theinspirebusinessacademy](https://youtube.com/@theinspirebusinessacademy)  
 > Official Facebook: [theinspirebusinessacademy](https://www.facebook.com/share/1BhrJNWHmF/)
 
----
+----
 
 ## 1. Executive Summary
 
