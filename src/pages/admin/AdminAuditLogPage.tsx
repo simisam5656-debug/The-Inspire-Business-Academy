@@ -209,7 +209,10 @@ export const AdminAuditLogPage: React.FC = () => {
                     </td>
 
                     <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="font-bold text-slate-900 capitalize">
+                      <span className="font-bold text-slate-900">
+                        {log.actorName || (log.actorId ? 'Unknown user' : 'System')}
+                      </span>
+                      <span className="text-[10px] font-semibold text-[#1F3FBF] capitalize block">
                         {log.actorRole.replace('_', ' ')}
                       </span>
                       <span className="text-[10px] text-slate-400 block truncate max-w-[120px]">
@@ -280,7 +283,7 @@ export const AdminAuditLogPage: React.FC = () => {
 
               <div>
                 <span className="font-semibold text-slate-500 block">Actor Role & ID:</span>
-                <span className="text-slate-700">{selectedLog.actorRole} ({selectedLog.actorId || 'System'})</span>
+                <span className="text-slate-700">{selectedLog.actorName ? `${selectedLog.actorName} - ` : ''}{selectedLog.actorRole} ({selectedLog.actorId || 'System'})</span>
               </div>
 
               <div>

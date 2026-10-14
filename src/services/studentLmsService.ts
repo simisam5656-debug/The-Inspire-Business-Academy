@@ -309,76 +309,16 @@ export const StudentLmsService = {
         throw new Error(progErr.message || 'Failed to update lesson progress in database');
       }
 
-      // Recompute progress from real count of completed published lessons
-      // Lessons belong to modules: course_lessons.module_id -> course_modules.course_id
-      // Published flag is is_published on both course_lessons and course_modules
-      const { data: publishedModules, error: modulesErr } = await supabase
-        .from('course_modules')
-        .select('id')
-        .eq('course_id', courseId)
-        .eq('is_published', true);
-
-      if (modulesErr) {
-        console.warn('Could not query published modules:', modulesErr);
+      // Students have no UPDATE right on student_enrollments (RLS), so progress is recomputed
+      // by the database function update_my_course_progress().
+      const { data: pct, error: rpcErr } = await supabase.rpc('update_my_course_progress', {
+        p_course_id: courseId,
+        p_lesson_id: lessonId,
+      });
+      if (rpcErr) {
+        throw new Error(rpcErr.message || 'Failed to update enrollment progress in database');
       }
-
-      const publishedModuleIds = (publishedModules || []).map((m: any) => m.id);
-
-      let publishedLessons: { id: string }[] | null = null;
-      if (publishedModuleIds.length > 0) {
-        const { data: lessons, error: lessonsErr } = await supabase
-          .from('course_lessons')
-          .select('id')
-          .in('module_id', publishedModuleIds)
-          .eq('is_published', true);
-
-        if (lessonsErr) {
-          console.warn('Could not query published lessons:', lessonsErr);
-        } else {
-          publishedLessons = lessons;
-        }
-      } else {
-        publishedLessons = [];
-      }
-
-      const { data: completedList, error: countErr } = await supabase
-        .from('student_lesson_progress')
-        .select('lesson_id')
-        .eq('user_id', userId)
-        .eq('course_id', courseId)
-        .eq('is_completed', true);
-
-      if (countErr) {
-        throw new Error(countErr.message || 'Failed to count completed lessons');
-      }
-
-      const publishedCount = publishedLessons && publishedLessons.length > 0
-        ? publishedLessons.length
-        : totalCourseLessons;
-
-      let completedPublishedCount = (completedList || []).length;
-      if (publishedLessons && publishedLessons.length > 0) {
-        const pubIds = new Set(publishedLessons.map((l: any) => l.id));
-        completedPublishedCount = (completedList || []).filter((c: any) => pubIds.has(c.lesson_id)).length;
-      }
-
-      const newPercentage = calculateProgressPercentage(completedPublishedCount, publishedCount);
-
-      const { error: enrErr } = await supabase
-        .from('student_enrollments')
-        .update({
-          progress_percentage: newPercentage,
-          last_accessed_lesson_id: lessonId,
-          last_accessed_at: timestamp,
-          status: newPercentage === 100 ? 'completed' : 'active',
-          completed_at: newPercentage === 100 ? timestamp : null,
-        })
-        .eq('user_id', userId)
-        .eq('course_id', courseId);
-
-      if (enrErr) {
-        throw new Error(enrErr.message || 'Failed to update enrollment progress in database');
-      }
+      const newPercentage = Number(pct ?? 0);
 
       return { isCompleted: completed, newPercentage };
     }

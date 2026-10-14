@@ -14,7 +14,7 @@ import { siteConfig } from '../../config/site';
 import { OFFICIAL_COURSES } from '../../config/courses';
 import { CourseService } from '../../services/courseService';
 import { CmsService } from '../../services/cmsService';
-import { isSupabaseConfigured } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   Building2,
   CheckCircle2,
@@ -199,36 +199,93 @@ export const PhysicalJoinPage: React.FC = () => {
     try {
       setIsSubmitting(true);
 
-      const response = await fetch('/api/admissions/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          admissionType: 'physical',
-          fullName: fullName.trim(),
-          guardianName: guardianName.trim(),
-          phone: phone.trim(),
-          whatsapp: effectiveWhatsapp.trim(),
-          email: email.trim() || undefined,
-          city: city.trim() || 'Sadiqabad',
-          courseSlug: selectedCourseSlug,
-          courseTitle: chosenCourseTitle,
-          batchPreference: batchPreference,
-          notes: notes.trim() || undefined,
-        }),
-      });
+      const payload = {
+        admissionType: 'physical',
+        fullName: fullName.trim(),
+        guardianName: guardianName.trim(),
+        phone: phone.trim(),
+        whatsapp: effectiveWhatsapp.trim(),
+        email: email.trim() || undefined,
+        city: city.trim() || 'Sadiqabad',
+        courseSlug: selectedCourseSlug,
+        courseTitle: chosenCourseTitle,
+        batchPreference: batchPreference,
+        notes: notes.trim() || undefined,
+      };
 
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        setErrorMessage(
-          data.error ||
-            (isRoman
-              ? 'Dakhla submit nahi ho saka. Baraye meharbani details check karein.'
-              : 'Failed to submit admission. Please review your details.')
-        );
-      } else {
-        setSubmittedRef(data.referenceNumber);
+      // 1) Preferred path: server API (validation + duplicate check).
+      let apiData: any = null;
+      let apiStatus = 0;
+      try {
+        const response = await fetch('/api/admissions/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        apiStatus = response.status;
+        apiData = await response.json();
+      } catch {
+        apiData = null; // network error or non-JSON reply (API not reachable)
       }
+
+      if (apiData?.ok) {
+        setSubmittedRef(apiData.referenceNumber);
+        return;
+      }
+
+      // Real validation/duplicate answer from the server -> show it as is.
+      if (apiData && apiStatus >= 400 && apiStatus < 500) {
+        setErrorMessage(apiData.error || 'Failed to submit admission. Please review your details.');
+        return;
+      }
+
+      // 2) Fallback: API unavailable/misconfigured (5xx, no JSON). RLS allows a public
+      //    "pending" admission insert, so the request is still saved for the admin.
+      const normalizedPhone = (() => {
+        const d = phone.replace(/[^0-9]/g, '');
+        return d.startsWith('92') && d.length === 12 ? '0' + d.slice(2) : d;
+      })();
+      if (!/^03[0-9]{9}$/.test(normalizedPhone)) {
+        setErrorMessage(
+          isRoman
+            ? 'Durust Pakistani mobile number darj karein (e.g. 0300-1234567).'
+            : 'Please enter a valid Pakistani mobile number (e.g. 0300-1234567).'
+        );
+        return;
+      }
+      if (!supabase) {
+        setErrorMessage(
+          apiData?.error ||
+            (isRoman ? 'Dakhla submit nahi ho saka. WhatsApp par rabta karein.' : 'Failed to submit admission. Please contact us on WhatsApp.')
+        );
+        return;
+      }
+      const referenceNumber = `IBA-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+      const { error: insErr } = await supabase.from('admissions').insert({
+        reference_number: referenceNumber,
+        admission_type: 'physical',
+        full_name: payload.fullName,
+        guardian_name: payload.guardianName,
+        phone: normalizedPhone,
+        whatsapp: payload.whatsapp ? payload.whatsapp.replace(/[^0-9]/g, '') : normalizedPhone,
+        email: payload.email ? payload.email.toLowerCase() : null,
+        city: payload.city,
+        course_slug: payload.courseSlug,
+        course_title: payload.courseTitle,
+        batch_preference: payload.batchPreference || null,
+        notes: payload.notes || null,
+        status: 'pending',
+      });
+      if (insErr) {
+        console.error('Admission fallback insert failed:', insErr.message);
+        setErrorMessage(
+          (isRoman
+            ? 'Dakhla submit nahi ho saka. Baraye meharbani WhatsApp par rabta karein. '
+            : 'Failed to submit admission. Please contact us on WhatsApp. ') + `(${insErr.message})`
+        );
+        return;
+      }
+      setSubmittedRef(referenceNumber);
     } catch (err: any) {
       setErrorMessage(
         isRoman

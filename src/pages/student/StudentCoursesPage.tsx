@@ -261,6 +261,15 @@ export const StudentCoursesPage: React.FC = () => {
       return;
     }
 
+    if (!compressedFile && !screenshotFile) {
+      setRequestError(
+        isRoman
+          ? 'Payment ka screenshot upload karna zaroori hai. Pehle screenshot muntakhib karein.'
+          : 'A payment screenshot is required. Please choose your receipt screenshot first.'
+      );
+      return;
+    }
+
     try {
       setSubmittingRequest(true);
       const fileToUpload = compressedFile || screenshotFile || undefined;
@@ -1068,8 +1077,8 @@ export const StudentCoursesPage: React.FC = () => {
                     <div>
                       <label className="block font-semibold text-slate-700 mb-1">
                         {isRoman
-                          ? 'Payment Screenshot Proof (Ikhtiyari)'
-                          : 'Payment Proof Screenshot (Recommended)'}
+                          ? 'Payment Screenshot Proof (Zaroori) *'
+                          : 'Payment Proof Screenshot (Required) *'}
                       </label>
                       <label className="cursor-pointer flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-slate-300 hover:border-[#1F3FBF] bg-slate-50/50 hover:bg-slate-50 transition text-xs text-slate-600">
                         <Upload className="w-4 h-4 text-slate-400" />
@@ -1093,6 +1102,13 @@ export const StudentCoursesPage: React.FC = () => {
                         </span>
                       )}
                     </div>
+
+                    {requestError && (
+                      <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                        <span>{requestError}</span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                       <Button
