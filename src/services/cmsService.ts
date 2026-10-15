@@ -7,6 +7,7 @@ import {
   GalleryItemRecord,
   ShortSessionRecord,
   OfferRecord,
+  OfferPromoCodeRecord,
   ManagerUserRecord,
   ManagerPermissionKey,
   ComprehensiveReportData,
@@ -1011,31 +1012,42 @@ export const CmsService = {
   async saveAnnouncement(data: Partial<AnnouncementRecord>, actorId?: string): Promise<AnnouncementRecord> {
     if (isSupabaseConfigured && supabase) {
       try {
-        const payload: Record<string, any> = {
-          title: data.title,
-          title_roman_urdu: data.titleRomanUrdu || null,
-          content: data.content,
-          content_roman_urdu: data.contentRomanUrdu || null,
-          category: data.category || 'general',
-          is_published: data.isPublished !== undefined ? data.isPublished : true,
-          is_pinned: data.isPinned || false,
-          target_audience: data.targetAudience || 'all',
-          start_date: data.startDate || null,
-          end_date: data.endDate || null,
-          display_order: data.displayOrder || 0,
-          updated_at: new Date().toISOString(),
+        const payload: Record<string, any> = { updated_at: new Date().toISOString() };
+        const set = (k: string, v: any) => {
+          if (v !== undefined) payload[k] = v;
         };
         if (data.id) {
-          payload.id = data.id;
-        } else if (actorId) {
-          payload.created_by = actorId;
+          // Partial update: only touch fields that were supplied (e.g. toggling is_active).
+          set('title', data.title);
+          set('title_roman_urdu', data.titleRomanUrdu);
+          set('description', data.description);
+          set('description_roman_urdu', data.descriptionRomanUrdu);
+          if (data.discountPercentage !== undefined) payload.discount_percentage = Number(data.discountPercentage);
+          set('start_date', data.startDate);
+          set('end_date', data.endDate);
+          set('is_active', data.isActive);
+          if (data.bannerMessage !== undefined) payload.banner_message = data.bannerMessage || null;
+          if (data.applicableCourseSlugs !== undefined) payload.applicable_course_slugs = data.applicableCourseSlugs || null;
+          if (data.requiresPromoCode !== undefined) payload.requires_promo_code = !!data.requiresPromoCode;
+        } else {
+          Object.assign(payload, {
+            title: data.title,
+            title_roman_urdu: data.titleRomanUrdu || data.title,
+            description: data.description,
+            description_roman_urdu: data.descriptionRomanUrdu || data.description,
+            discount_percentage: Number(data.discountPercentage) || 10,
+            start_date: data.startDate,
+            end_date: data.endDate,
+            is_active: data.isActive !== undefined ? data.isActive : true,
+            banner_message: data.bannerMessage || null,
+            applicable_course_slugs: data.applicableCourseSlugs || null,
+            requires_promo_code: !!data.requiresPromoCode,
+          });
         }
 
-        const { data: res, error } = await supabase
-          .from('announcements')
-          .upsert(payload)
-          .select()
-          .single();
+        const { data: res, error } = data.id
+          ? await supabase.from('offers').update(payload).eq('id', data.id).select().single()
+          : await supabase.from('offers').insert(payload).select().single();
 
         if (!error && res) {
           await this.recordAuditLog({
@@ -1901,6 +1913,25 @@ export const CmsService = {
           console.error('Error fetching offers from Supabase:', error.message);
           return [];
         }
+        let codesByOffer: Record<string, OfferPromoCodeRecord[]> = {};
+        try {
+          const { data: codes } = await supabase.from('offer_promo_codes').select('*').order('created_at', { ascending: true });
+          for (const c of codes || []) {
+            (codesByOffer[c.offer_id] = codesByOffer[c.offer_id] || []).push({
+              id: c.id,
+              offerId: c.offer_id,
+              code: c.code,
+              usageLimit: c.usage_limit,
+              timesUsed: Number(c.times_used || 0),
+              perUserLimit: 1,
+              isActive: c.is_active,
+              createdAt: c.created_at,
+              updatedAt: c.updated_at,
+            });
+          }
+        } catch (_) {
+          codesByOffer = {};
+        }
         return (data || []).map((d: any) => ({
           id: d.id,
           title: d.title,
@@ -1913,6 +1944,8 @@ export const CmsService = {
           isActive: d.is_active,
           bannerMessage: d.banner_message,
           applicableCourseSlugs: d.applicable_course_slugs,
+          requiresPromoCode: !!d.requires_promo_code,
+          promoCodes: codesByOffer[d.id] || [],
           createdAt: d.created_at,
           updatedAt: d.updated_at,
         }));
@@ -1973,6 +2006,7 @@ export const CmsService = {
             isActive: res.is_active,
             bannerMessage: res.banner_message,
             applicableCourseSlugs: res.applicable_course_slugs,
+            requiresPromoCode: !!res.requires_promo_code,
             createdAt: res.created_at,
             updatedAt: res.updated_at,
           };
@@ -1996,6 +2030,86 @@ export const CmsService = {
       details: { title: res.title },
     });
     return res;
+  },
+
+  async addOfferPromoCode(
+    offerId: string,
+    code: string,
+    usageLimit: number | null,
+    actorId?: string
+  ): Promise<void> {
+    if (!(isSupabaseConfigured && supabase)) {
+      throw new Error('Promo codes need the live database.');
+    }
+    const clean = code.trim().toUpperCase().replace(/\s+/g, '');
+    if (!/^[A-Z0-9_-]{3,30}$/.test(clean)) {
+      throw new Error('Promo code 3-30 characters ka ho (sirf A-Z, 0-9, - _).');
+    }
+    const { data, error } = await supabase
+      .from('offer_promo_codes')
+      .insert({ offer_id: offerId, code: clean, usage_limit: usageLimit && usageLimit > 0 ? usageLimit : null })
+      .select('id')
+      .single();
+    if (error) {
+      if (error.code === '23505') throw new Error('Yeh promo code pehle se mojood hai. Doosra code chunein.');
+      throw new Error(error.message || 'Failed to add promo code');
+    }
+    await this.recordAuditLog({
+      actorId: actorId || 'system',
+      actorRole: 'manager',
+      action: 'CREATE_PROMO_CODE',
+      entity: 'offer_promo_codes',
+      entityId: data?.id,
+      details: { code: clean, offerId },
+    });
+  },
+
+  async setOfferPromoCodeActive(id: string, isActive: boolean, actorId?: string): Promise<void> {
+    if (!(isSupabaseConfigured && supabase)) throw new Error('Promo codes need the live database.');
+    const { error } = await supabase
+      .from('offer_promo_codes')
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw new Error(error.message || 'Failed to update promo code');
+    await this.recordAuditLog({
+      actorId: actorId || 'system',
+      actorRole: 'manager',
+      action: isActive ? 'ENABLE_PROMO_CODE' : 'DISABLE_PROMO_CODE',
+      entity: 'offer_promo_codes',
+      entityId: id,
+    });
+  },
+
+  async deleteOfferPromoCode(id: string, actorId?: string): Promise<void> {
+    if (!(isSupabaseConfigured && supabase)) throw new Error('Promo codes need the live database.');
+    const { error } = await supabase.from('offer_promo_codes').delete().eq('id', id);
+    if (error) throw new Error(error.message || 'Failed to delete promo code');
+    await this.recordAuditLog({
+      actorId: actorId || 'system',
+      actorRole: 'manager',
+      action: 'DELETE_PROMO_CODE',
+      entity: 'offer_promo_codes',
+      entityId: id,
+    });
+  },
+
+  /** Ends an offer immediately: offer inactive + all its promo codes disabled. */
+  async endOfferNow(offerId: string, actorId?: string): Promise<void> {
+    await this.saveOffer({ id: offerId, isActive: false }, actorId);
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase
+        .from('offer_promo_codes')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('offer_id', offerId);
+      if (error) throw new Error(error.message || 'Failed to disable promo codes');
+    }
+    await this.recordAuditLog({
+      actorId: actorId || 'system',
+      actorRole: 'manager',
+      action: 'END_OFFER',
+      entity: 'offers',
+      entityId: offerId,
+    });
   },
 
   async deleteOffer(id: string, actorId?: string): Promise<void> {

@@ -197,6 +197,8 @@ export default async function handler(req: any, res: any, dbClient?: any) {
       promoCode: promoCode?.trim(),
       selectedCourseIds: Array.isArray(selectedCourseIds) ? selectedCourseIds : undefined,
       userId: verifiedUserId,
+      email: typeof email === 'string' ? email : undefined,
+      phone: typeof phone === 'string' ? phone : undefined,
       dbClient: supabase,
       req,
       env: req.env,
@@ -370,22 +372,41 @@ export default async function handler(req: any, res: any, dbClient?: any) {
       }
     }
 
-    // Atomically increment promo code usage if offer promo code was applied
+    // Atomically claim the promo code (usage limit + once per student)
     if (promoCodeId) {
+      let claimOk = true;
+      let claimReason = '';
       try {
-        const { data: currentPromo } = await supabase
-          .from('offer_promo_codes')
-          .select('times_used')
-          .eq('id', promoCodeId)
-          .maybeSingle();
-
-        const currentTimes = Number(currentPromo?.times_used || 0);
-        await supabase
-          .from('offer_promo_codes')
-          .update({ times_used: currentTimes + 1 })
-          .eq('id', promoCodeId);
+        const { data: claim, error: claimErr } = await supabase.rpc('claim_offer_promo', {
+          p_promo_code_id: promoCodeId,
+          p_user_id: verifiedUserId || null,
+          p_email: typeof email === 'string' ? email.trim() : null,
+          p_phone: typeof phone === 'string' ? phone.trim() : null,
+          p_payment_reference: paymentRef,
+        });
+        if (claimErr) {
+          console.warn('Promo claim RPC warning:', claimErr.message);
+        } else if (claim && claim.ok === false) {
+          claimOk = false;
+          claimReason = claim.reason || '';
+        }
       } catch (prErr) {
-        console.warn('Promo code usage update warning:', prErr);
+        console.warn('Promo code claim warning:', prErr);
+      }
+      if (!claimOk) {
+        try {
+          await supabase.from('online_payments').delete().eq('id', insertedPaymentId);
+          await supabase.from('admissions').delete().eq('id', insertedAdmissionId);
+        } catch (cleanupErr) {
+          console.error('Cleanup after promo claim failure:', cleanupErr);
+        }
+        return res.status(400).json({
+          ok: false,
+          error:
+            claimReason === 'already_used'
+              ? 'You have already used this promo code.'
+              : 'This promo code is no longer available.',
+        });
       }
     }
 
