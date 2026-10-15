@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Lock,
   MessageCircle,
+  FolderOpen,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -175,6 +176,14 @@ export const StudentLayout: React.FC = () => {
       labelEn: 'Final Exam (70% Pass)',
       labelRoman: 'Final Imtihan (70%)',
       icon: GraduationCap,
+      requiresUnlock: true,
+    },
+    {
+      to: '/student/resources',
+      end: false,
+      labelEn: 'Resources',
+      labelRoman: 'Resources',
+      icon: FolderOpen,
       requiresUnlock: true,
     },
     {
