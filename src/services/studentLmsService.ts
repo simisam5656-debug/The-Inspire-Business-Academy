@@ -73,7 +73,58 @@ export function calculateProgressPercentage(completedCount: number, totalCount: 
   return Math.min(100, Math.round((completedCount / totalCount) * 100));
 }
 
+export interface MyResourceItem {
+  id: string;
+  title: string;
+  resourceType: string;
+  description?: string;
+  contentText?: string;
+  externalUrl?: string;
+  courseId: string;
+  moduleTitle: string;
+  lessonTitle: string;
+  displayOrder: number;
+}
+
 export const StudentLmsService = {
+  /** All lesson resources of the courses the student can access (RLS enforces access). */
+  async getAllMyResources(courseIds: string[]): Promise<MyResourceItem[]> {
+    if (!isSupabaseConfigured || !supabase || courseIds.length === 0) return [];
+    const { data, error } = await supabase
+      .from('course_modules')
+      .select(
+        'id, course_id, title, display_order, is_published, course_lessons(id, title, display_order, is_published, lesson_resources(id, title, resource_type, description, content_text, external_url, display_order))'
+      )
+      .in('course_id', courseIds)
+      .eq('is_published', true)
+      .order('display_order', { ascending: true });
+    if (error) throw new Error(error.message);
+    const out: MyResourceItem[] = [];
+    for (const m of data || []) {
+      const lessons = [...((m as any).course_lessons || [])]
+        .filter((l: any) => l.is_published)
+        .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      for (const l of lessons) {
+        const res = [...(l.lesson_resources || [])].sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+        for (const r of res) {
+          out.push({
+            id: r.id,
+            title: r.title,
+            resourceType: r.resource_type,
+            description: r.description || undefined,
+            contentText: r.content_text || undefined,
+            externalUrl: r.external_url || undefined,
+            courseId: (m as any).course_id,
+            moduleTitle: (m as any).title,
+            lessonTitle: l.title,
+            displayOrder: r.display_order ?? 0,
+          });
+        }
+      }
+    }
+    return out;
+  },
+
   /**
    * Get all active enrollments for a student
    */
