@@ -38,6 +38,7 @@ const StudentCoursesPage = lazy(() => import('./pages/student/StudentCoursesPage
 const StudentClassroomPage = lazy(() => import('./pages/student/StudentClassroomPage').then((m) => ({ default: m.StudentClassroomPage })));
 const StudentQuizzesPage = lazy(() => import('./pages/student/StudentQuizzesPage').then((m) => ({ default: m.StudentQuizzesPage })));
 const StudentFinalExamPage = lazy(() => import('./pages/student/StudentFinalExamPage').then((m) => ({ default: m.StudentFinalExamPage })));
+const StudentProfilePage = lazy(() => import('./pages/student/StudentProfilePage').then((m) => ({ default: m.StudentProfilePage })));
 const StudentNotesPage = lazy(() => import('./pages/student/StudentNotesPage').then((m) => ({ default: m.StudentNotesPage })));
 const StudentCertificatePage = lazy(() => import('./pages/student/StudentCertificatePage').then((m) => ({ default: m.StudentCertificatePage })));
 
@@ -142,6 +143,7 @@ export default function App() {
                       </StudentAccessGuard>
                     }
                   />
+                  <Route path="profile" element={<StudentProfilePage />} />
                   <Route
                     path="notes"
                     element={
