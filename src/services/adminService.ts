@@ -1850,6 +1850,27 @@ export const AdminService = {
     }
   },
 
+  async getStudentDeviceSession(studentId: string): Promise<{ lastSeenAt: string; createdAt: string; userAgent: string | null } | null> {
+    if (!isSupabaseConfigured || !supabase) return null;
+    try {
+      const { data } = await supabase
+        .from('student_sessions')
+        .select('last_seen_at, created_at, user_agent')
+        .eq('user_id', studentId)
+        .maybeSingle();
+      return data ? { lastSeenAt: data.last_seen_at, createdAt: data.created_at, userAgent: data.user_agent } : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async resetStudentDevices(studentId: string): Promise<{ ok: boolean; error?: string }> {
+    if (!isSupabaseConfigured || !supabase) return { ok: false, error: 'Database not configured' };
+    const { error } = await supabase.rpc('admin_reset_student_sessions', { p_user_id: studentId });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  },
+
   async resetOnlineStudentPassword(studentId: string): Promise<{ ok: boolean; message?: string; error?: string }> {
     try {
       const session = supabase ? (await supabase.auth.getSession()).data.session : null;
