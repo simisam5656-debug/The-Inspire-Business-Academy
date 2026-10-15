@@ -153,6 +153,13 @@ export default async function handler(req: any, res: any, dbClient?: any) {
       if (fullName !== undefined) updates.full_name = String(fullName).trim();
       if (phone !== undefined) updates.phone = String(phone).trim();
       if (city !== undefined) updates.city = String(city).trim();
+      if (body.portfolioUrl !== undefined) {
+        const raw = String(body.portfolioUrl || '').trim();
+        if (raw && !/^https?:\/\/[^\s]+$/i.test(raw)) {
+          return res.status(400).json({ ok: false, error: 'Portfolio URL must start with http:// or https://' });
+        }
+        updates.portfolio_url = raw || null;
+      }
 
       let emailChanged = false;
       const cleanEmail = email ? String(email).trim().toLowerCase() : undefined;

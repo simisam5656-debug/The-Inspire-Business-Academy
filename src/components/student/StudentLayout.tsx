@@ -288,10 +288,23 @@ export const StudentLayout: React.FC = () => {
               </button>
 
               {/* User Profile Pill */}
-              <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-                <div className="w-8 h-8 rounded-full bg-[#1F3FBF]/10 text-[#1F3FBF] flex items-center justify-center font-bold text-xs">
-                  {(profile?.fullName || user?.email || 'S')[0].toUpperCase()}
-                </div>
+              <Link
+                to="/student/profile"
+                title={isRoman ? 'Meri Profile' : 'My Profile'}
+                className="flex items-center gap-2 pl-2 border-l border-slate-200 hover:opacity-80"
+              >
+                {profile?.avatarUrl ? (
+                  <img
+                    src={profile.avatarUrl}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="w-8 h-8 rounded-full object-cover border border-slate-200"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[#1F3FBF]/10 text-[#1F3FBF] flex items-center justify-center font-bold text-xs">
+                    {(profile?.fullName || user?.email || 'S')[0].toUpperCase()}
+                  </div>
+                )}
                 <div className="text-left hidden lg:block">
                   <div className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">
                     {profile?.fullName || 'Online Learner'}
@@ -300,7 +313,7 @@ export const StudentLayout: React.FC = () => {
                     {user?.email}
                   </div>
                 </div>
-              </div>
+              </Link>
 
               {/* Logout Button */}
               <button
@@ -336,6 +349,13 @@ export const StudentLayout: React.FC = () => {
         {/* Mobile Navigation Dropdown */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-4 space-y-2">
+            <Link
+              to="/student/profile"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-center text-xs font-bold text-[#1F3FBF] bg-[#F2F5FF] rounded-lg py-2 mb-2"
+            >
+              {isRoman ? 'Meri Profile / Settings' : 'My Profile / Settings'}
+            </Link>
             <div className="p-3 bg-slate-50 rounded-xl mb-3 flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-[#0F1F5C]">{profile?.fullName || 'Online Learner'}</p>

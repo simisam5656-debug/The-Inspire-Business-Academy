@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
+import { useSiteContact } from '../../hooks/useSiteContact';
 import { CourseService } from '../../services/courseService';
 import { StudentLmsService } from '../../services/studentLmsService';
 import {
@@ -56,6 +57,8 @@ export const StudentClassroomPage: React.FC = () => {
   const [selectedCourse, setSelectedCourse] = useState<CourseCMS | null>(null);
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [activeLesson, setActiveLesson] = useState<CourseLesson | null>(null);
+  const contact = useSiteContact();
+  const [question, setQuestion] = useState('');
   const [resources, setResources] = useState<LessonResource[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, StudentLessonProgress>>({});
   const [savingProgress, setSavingProgress] = useState(false);
@@ -568,6 +571,40 @@ export const StudentClassroomPage: React.FC = () => {
                         ? 'Har step ko sath sath apne laptop ya mobile par dohrana lazmi hai. Sabaq mukammal karne ke baad Prompts tab se tools aur templates copy karein.'
                         : 'Practice the workflow simultaneously. After watching, copy the prompt templates from the Resources tab and test the knowledge check.'}
                     </p>
+                  </div>
+
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs space-y-2">
+                    <span className="font-bold text-emerald-900 block">
+                      {isRoman ? 'Is lecture par sawal hai? Admin se WhatsApp par poochein' : 'Question about this lecture? Ask the admin on WhatsApp'}
+                    </span>
+                    <textarea
+                      rows={3}
+                      maxLength={500}
+                      value={question}
+                      onChange={(e) => setQuestion(e.target.value)}
+                      placeholder={isRoman ? 'Apna sawal yahan likhein...' : 'Type your question here...'}
+                      className="w-full p-2.5 border border-emerald-200 rounded-lg bg-white text-slate-800"
+                    />
+                    <a
+                      href={
+                        question.trim()
+                          ? contact.waLink(
+                              `Assalam o Alaikum! Sawal / Question\nStudent: ${profile?.fullName || user?.email || ''}\nCourse: ${selectedCourse?.title || ''}\nLecture: ${activeLesson?.title || ''}\n\n${question.trim()}`
+                            )
+                          : undefined
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-disabled={!question.trim()}
+                      onClick={(e) => {
+                        if (!question.trim()) e.preventDefault();
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold text-white ${
+                        question.trim() ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed'
+                      }`}
+                    >
+                      {isRoman ? 'WhatsApp par Bhejein' : 'Send on WhatsApp'}
+                    </a>
                   </div>
                 </div>
               )}

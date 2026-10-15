@@ -68,6 +68,7 @@ export const AdminOnlineStudentsPage: React.FC = () => {
   const [editPhone, setEditPhone] = useState('');
   const [editCity, setEditCity] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editPortfolio, setEditPortfolio] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
 
   // Manual enroll (admin grants a course without payment, e.g. cash payment)
@@ -143,6 +144,7 @@ export const AdminOnlineStudentsPage: React.FC = () => {
       setEditPhone(detail.profile?.phone || '');
       setEditCity(detail.profile?.city || '');
       setEditEmail(detail.profile?.email || '');
+      setEditPortfolio(detail.profile?.portfolio_url || '');
     } catch (err: any) {
       alert(err?.message || 'Failed to load student details');
     } finally {
@@ -209,6 +211,7 @@ export const AdminOnlineStudentsPage: React.FC = () => {
         phone: editPhone,
         city: editCity,
         email: editEmail,
+        portfolioUrl: editPortfolio,
       });
       if (!res.ok) {
         setFeedbackToast({ type: 'error', message: res.error || 'Failed to update student profile' });
@@ -645,6 +648,21 @@ export const AdminOnlineStudentsPage: React.FC = () => {
                         {studentDetail.profile?.email} | {studentDetail.profile?.phone || 'No phone'}
                         {studentDetail.profile?.city ? ` | ${studentDetail.profile.city}` : ''}
                       </p>
+                      {studentDetail.profile?.portfolio_url ? (
+                        <a
+                          href={studentDetail.profile.portfolio_url}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          className="inline-flex items-center gap-1 mt-1 text-xs font-bold text-[#1F3FBF] hover:underline"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          {isRoman ? 'Student ka Portfolio kholein' : 'Open student portfolio'}
+                        </a>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          {isRoman ? 'Portfolio URL abhi add nahi hua (Edit Profile mein add karein).' : 'No portfolio URL yet (add it via Edit Profile).'}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -837,6 +855,18 @@ export const AdminOnlineStudentsPage: React.FC = () => {
                           type="text"
                           value={editCity}
                           onChange={(e) => setEditCity(e.target.value)}
+                          className="w-full p-2 border border-slate-300 rounded-lg bg-white"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-slate-600 font-semibold mb-1">
+                          Portfolio Website URL (student ki apni website)
+                        </label>
+                        <input
+                          type="url"
+                          value={editPortfolio}
+                          onChange={(e) => setEditPortfolio(e.target.value)}
+                          placeholder="https://student-portfolio.com"
                           className="w-full p-2 border border-slate-300 rounded-lg bg-white"
                         />
                       </div>

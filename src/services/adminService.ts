@@ -1826,7 +1826,7 @@ export const AdminService = {
     }
   },
 
-  async updateOnlineStudent(studentId: string, updates: { fullName?: string; phone?: string; city?: string; email?: string }): Promise<{ ok: boolean; profile?: any; error?: string }> {
+  async updateOnlineStudent(studentId: string, updates: { fullName?: string; phone?: string; city?: string; email?: string; portfolioUrl?: string }): Promise<{ ok: boolean; profile?: any; error?: string }> {
     try {
       const session = supabase ? (await supabase.auth.getSession()).data.session : null;
       const token = session?.access_token || '';

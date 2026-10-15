@@ -39,6 +39,9 @@ export interface UserProfile {
   email: string;
   fullName: string;
   phone?: string;
+  city?: string;
+  bio?: string;
+  avatarUrl?: string;
   role: UserRole;
   isActive: boolean;
   createdAt: string;
