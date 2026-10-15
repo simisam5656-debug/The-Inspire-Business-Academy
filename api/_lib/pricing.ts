@@ -8,6 +8,8 @@ export interface AuthoritativePriceOptions {
   promoCode?: string;
   selectedCourseIds?: string[];
   userId?: string | null;
+  email?: string | null;
+  phone?: string | null;
   dbClient?: any;
   req?: any;
   env?: Record<string, any>;
@@ -43,6 +45,8 @@ export async function resolveAuthoritativePrice(
   options: AuthoritativePriceOptions
 ): Promise<AuthoritativePriceResult> {
   const { courseSlug, packageSlug, couponCode, promoCode, selectedCourseIds, userId, dbClient } = options;
+  const buyerEmail = (options.email || '').trim().toLowerCase();
+  const buyerPhone = (options.phone || '').trim();
 
   const emptyResult: AuthoritativePriceResult = {
     ok: false,
@@ -266,6 +270,8 @@ export async function resolveAuthoritativePrice(
   let eligibleOffer: any = null;
   let promoCodeId: string | null = null;
   let resolvedPromoCode: string | null = null;
+  let promoMsg: string | null = null;
+  let promoMsgRoman: string | null = null;
 
   // First, check if input code matches an offer promo code in offer_promo_codes
   if (codeToEvaluate) {
@@ -274,7 +280,6 @@ export async function resolveAuthoritativePrice(
         .from('offer_promo_codes')
         .select('*, offers(*)')
         .eq('code', codeToEvaluate)
-        .eq('is_active', true)
         .maybeSingle();
 
       if (!prErr && promoRow && promoRow.offers) {
@@ -283,7 +288,41 @@ export async function resolveAuthoritativePrice(
         const isApplicable = !off.applicable_course_slugs || off.applicable_course_slugs.length === 0 || off.applicable_course_slugs.includes(itemSlug);
         const withinUsage = !promoRow.usage_limit || promoRow.times_used < promoRow.usage_limit;
 
-        if (isOfferActive && isApplicable && withinUsage) {
+        let alreadyUsed = false;
+        try {
+          const ors: string[] = [];
+          if (userId) ors.push(`user_id.eq.${userId}`);
+          if (buyerEmail && /^[^,()\s]+$/.test(buyerEmail)) ors.push(`email.ilike.${buyerEmail}`);
+          if (buyerPhone && /^[0-9+\-]+$/.test(buyerPhone)) ors.push(`phone.eq.${buyerPhone}`);
+          if (ors.length > 0) {
+            const { data: used } = await supabase
+              .from('offer_promo_redemptions')
+              .select('id')
+              .eq('promo_code_id', promoRow.id)
+              .or(ors.join(','))
+              .limit(1);
+            alreadyUsed = !!(used && used.length > 0);
+          }
+        } catch (_) {
+          // table may be missing in mock environments
+        }
+
+        if (!promoRow.is_active || !off.is_active) {
+          promoMsg = 'This offer has ended.';
+          promoMsgRoman = 'Yeh offer khatam ho chuka hai.';
+        } else if (!isOfferActive) {
+          promoMsg = 'This offer is not running right now.';
+          promoMsgRoman = 'Yeh offer abhi chalu nahi hai ya expire ho chuka hai.';
+        } else if (!isApplicable) {
+          promoMsg = 'This promo code is not valid for the selected course.';
+          promoMsgRoman = 'Yeh promo code is course par laagu nahi hota.';
+        } else if (!withinUsage) {
+          promoMsg = 'This promo code has reached its usage limit.';
+          promoMsgRoman = 'Is promo code ki istamaal ki hadd poori ho chuki hai.';
+        } else if (alreadyUsed) {
+          promoMsg = 'You have already used this promo code.';
+          promoMsgRoman = 'Aap yeh promo code pehle istamaal kar chuke hain (aik student sirf aik baar).';
+        } else {
           const discPct = Number(off.discount_percentage);
           if (!isNaN(discPct) && discPct > 0 && discPct <= 100) {
             eligibleOffer = off;
@@ -345,7 +384,10 @@ export async function resolveAuthoritativePrice(
   let couponMessage: string | null = null;
   let couponMessageRoman: string | null = null;
 
-  if (codeToEvaluate && !promoCodeId) {
+  if (codeToEvaluate && !promoCodeId && promoMsg) {
+    couponMessage = promoMsg;
+    couponMessageRoman = promoMsgRoman;
+  } else if (codeToEvaluate && !promoCodeId) {
     resolvedCouponCode = codeToEvaluate;
 
     const { data: cp, error: cpErr } = await supabase

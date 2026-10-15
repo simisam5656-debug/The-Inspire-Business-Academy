@@ -8,7 +8,7 @@ export default async function handler(req: any, res: any, dbClient?: any) {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
-    const { courseSlug, packageSlug, couponCode, promoCode, selectedCourseIds, userId } = body;
+    const { courseSlug, packageSlug, couponCode, promoCode, selectedCourseIds, userId, email, phone } = body;
 
     const result = await resolveAuthoritativePrice({
       courseSlug,
@@ -17,6 +17,8 @@ export default async function handler(req: any, res: any, dbClient?: any) {
       promoCode,
       selectedCourseIds,
       userId,
+      email: typeof email === 'string' ? email : undefined,
+      phone: typeof phone === 'string' ? phone : undefined,
       dbClient,
       req,
       env: req.env,

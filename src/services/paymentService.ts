@@ -38,7 +38,9 @@ export const PaymentService = {
     courseSlug?: string,
     packageSlug?: string,
     couponCode?: string,
-    userId?: string
+    userId?: string,
+    email?: string,
+    phone?: string
   ): Promise<{
     ok: boolean;
     basePrice: number;
@@ -54,7 +56,7 @@ export const PaymentService = {
       const res = await fetch('/api/payments/calculate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseSlug, packageSlug, couponCode, userId }),
+        body: JSON.stringify({ courseSlug, packageSlug, couponCode, userId, email, phone }),
       });
       if (res.ok) {
         return await res.json();
