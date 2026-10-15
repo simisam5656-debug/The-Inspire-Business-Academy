@@ -69,6 +69,7 @@ export const AdminOnlineStudentsPage: React.FC = () => {
   const [editCity, setEditCity] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPortfolio, setEditPortfolio] = useState('');
+  const [deviceInfo, setDeviceInfo] = useState<{ lastSeenAt: string; userAgent: string | null } | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
 
   // Manual enroll (admin grants a course without payment, e.g. cash payment)
@@ -145,6 +146,7 @@ export const AdminOnlineStudentsPage: React.FC = () => {
       setEditCity(detail.profile?.city || '');
       setEditEmail(detail.profile?.email || '');
       setEditPortfolio(detail.profile?.portfolio_url || '');
+      setDeviceInfo(await AdminService.getStudentDeviceSession(id));
     } catch (err: any) {
       alert(err?.message || 'Failed to load student details');
     } finally {
@@ -249,6 +251,34 @@ export const AdminOnlineStudentsPage: React.FC = () => {
       });
     } catch (err: any) {
       setFeedbackToast({ type: 'error', message: err.message || 'Error sending password reset' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Sign the student out of every device
+  const handleResetDevices = async () => {
+    if (!studentDetail?.profile?.id) return;
+    const ok = window.confirm(
+      isRoman
+        ? 'Student har device se logout ho jayega aur dobara login karna hoga. Jari rakhein?'
+        : 'The student will be signed out everywhere and must log in again. Continue?'
+    );
+    if (!ok) return;
+    try {
+      setActionLoading(true);
+      const res = await AdminService.resetStudentDevices(studentDetail.profile.id);
+      if (!res.ok) {
+        setFeedbackToast({ type: 'error', message: res.error || 'Failed to reset devices' });
+        return;
+      }
+      setDeviceInfo(null);
+      setFeedbackToast({
+        type: 'success',
+        message: isRoman ? 'Student ke saare devices reset ho gaye.' : 'All devices reset for this student.',
+      });
+    } catch (err: any) {
+      setFeedbackToast({ type: 'error', message: err.message || 'Error resetting devices' });
     } finally {
       setActionLoading(false);
     }
@@ -648,6 +678,15 @@ export const AdminOnlineStudentsPage: React.FC = () => {
                         {studentDetail.profile?.email} | {studentDetail.profile?.phone || 'No phone'}
                         {studentDetail.profile?.city ? ` | ${studentDetail.profile.city}` : ''}
                       </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {deviceInfo
+                          ? `${isRoman ? 'Aakhri active' : 'Last active'}: ${new Date(deviceInfo.lastSeenAt).toLocaleString()} · ${
+                              /Mobile|Android|iPhone/i.test(deviceInfo.userAgent || '') ? 'Mobile' : 'Computer'
+                            }`
+                          : isRoman
+                            ? 'Koi active device record nahi.'
+                            : 'No active device record.'}
+                      </p>
                       {studentDetail.profile?.portfolio_url ? (
                         <a
                           href={studentDetail.profile.portfolio_url}
@@ -717,6 +756,18 @@ export const AdminOnlineStudentsPage: React.FC = () => {
                     leftIcon={<KeyRound className="w-3.5 h-3.5" />}
                   >
                     {isRoman ? 'Password Reset Bhaijein' : 'Send Password Reset'}
+                  </Button>
+
+                  {/* Reset devices (single-device login) */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={actionLoading}
+                    onClick={handleResetDevices}
+                    className="border-amber-300 text-amber-800 hover:bg-amber-50 font-bold"
+                    leftIcon={<ShieldAlert className="w-3.5 h-3.5" />}
+                  >
+                    {isRoman ? 'Devices Reset Karein' : 'Reset Devices'}
                   </Button>
 
                   {/* Edit Profile Toggle Button */}

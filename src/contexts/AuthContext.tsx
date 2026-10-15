@@ -1,3 +1,4 @@
+import { DeviceSessionService } from '../services/deviceSessionService';
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -33,7 +34,7 @@ export interface AuthContextType {
   hasPermission: (key: ManagerPermissionKey) => boolean;
   signIn: (creds: SignInCredentials, isRomanUrdu?: boolean) => Promise<{ success: boolean; error?: string; role?: UserRole; isEmailNotConfirmed?: boolean }>;
   signUp: (creds: SignUpCredentials, isRomanUrdu?: boolean) => Promise<{ success: boolean; error?: string; requireVerification?: boolean; message?: string }>;
-  signOut: () => Promise<void>;
+  signOut: (opts?: { localOnly?: boolean }) => Promise<void>;
   refreshProfile: () => Promise<UserProfile | null>;
   resendConfirmationEmail: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
 }
@@ -245,6 +246,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
         }
 
+        // Single-device lock: this device becomes the only valid one (staff get no token).
+        await DeviceSessionService.register();
+
         setUser(data.user);
         setSession(data.session);
 
@@ -389,10 +393,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   // Sign out
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (opts?: { localOnly?: boolean }) => {
+    DeviceSessionService.clear();
     if (supabase && isSupabaseConfigured) {
       try {
-        await supabase.auth.signOut();
+        // localOnly: used when another device took over, so we must not kill the new device's session.
+        await supabase.auth.signOut(opts?.localOnly ? { scope: 'local' } : undefined);
       } catch (err) {
         console.warn('Error signing out:', err);
       }
@@ -403,6 +409,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setManagerPermissions([]);
     setAuthNotice(null);
   }, []);
+
+  // Single-device login guard (students only): if another device logged in, or admin reset devices, sign out here.
+  useEffect(() => {
+    if (!user?.id || profile?.role !== 'online_student') return;
+    let stopped = false;
+
+    const kick = async (reason?: string) => {
+      if (stopped) return;
+      stopped = true;
+      await signOut({ localOnly: true });
+      setAuthNotice({
+        type: 'error',
+        message:
+          reason === 'reset'
+            ? 'Admin ne aap ke devices reset kar diye hain. Dobara login karein. / Your devices were reset, please log in again.'
+            : 'Aap ka account kisi dusre device par login hua hai, is liye yahan se logout kar diya gaya. / Your account was logged in on another device.',
+      });
+    };
+
+    const check = async () => {
+      if (stopped) return;
+      const res = await DeviceSessionService.isStillValid();
+      if (!res.valid) await kick(res.reason);
+    };
+
+    (async () => {
+      if (!DeviceSessionService.hasToken()) {
+        await DeviceSessionService.register(); // session restored on a device with no token yet
+      } else {
+        await check();
+      }
+    })();
+
+    const timer = setInterval(check, 60000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [user?.id, profile?.role, signOut]);
 
   const role = profile?.role ?? null;
   const isSuperAdmin = role === 'super_admin';
