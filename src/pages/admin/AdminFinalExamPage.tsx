@@ -430,7 +430,7 @@ export const AdminFinalExamPage: React.FC = () => {
                           </button>
                           <button
                           type="button"
-                          onClick={() => handleDeleteQuestion(q.id)
+                          onClick={() => handleDeleteQuestion(q.id)}
                           className="text-rose-500 hover:text-rose-700 shrink-0 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
