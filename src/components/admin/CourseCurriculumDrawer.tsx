@@ -58,6 +58,18 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
   const [moduleTitleRoman, setModuleTitleRoman] = useState('');
   const [moduleDesc, setModuleDesc] = useState('');
 
+  // Curriculum editing state
+  const [editingModule, setEditingModule] = useState<CourseModule | null>(null);
+  const [editingLesson, setEditingLesson] = useState<CourseLesson | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editTitleRoman, setEditTitleRoman] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editYoutube, setEditYoutube] = useState('');
+  const [editDuration, setEditDuration] = useState(15);
+  const [editFreePreview, setEditFreePreview] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+
   // Lesson creation modal
   const [activeModuleForLesson, setActiveModuleForLesson] = useState<string | null>(null);
   const [lessonTitle, setLessonTitle] = useState('');
@@ -110,6 +122,39 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
     setModuleDesc('');
     setIsModuleModalOpen(false);
     loadCurriculum();
+  };
+
+  // Open/save curriculum edit forms
+  const startEditModule = (mod: CourseModule) => {
+    setEditingModule(mod); setEditingLesson(null);
+    setEditTitle(mod.title); setEditTitleRoman(mod.titleRomanUrdu || '');
+    setEditDescription(mod.description || ''); setEditError(null);
+  };
+
+  const startEditLesson = (lesson: CourseLesson) => {
+    setEditingLesson(lesson); setEditingModule(null);
+    setEditTitle(lesson.title); setEditTitleRoman(lesson.titleRomanUrdu || '');
+    setEditDescription(lesson.description || ''); setEditYoutube(lesson.youtubeVideoId || '');
+    setEditDuration(lesson.durationMinutes || 15); setEditFreePreview(!!lesson.isFreePreview);
+    setEditError(null);
+  };
+
+  const handleSaveCurriculumEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTitle.trim()) { setEditError(isRoman ? 'Title zaroori hai.' : 'Title is required.'); return; }
+    if (editingLesson && editYoutube.trim() && !isValidYouTubeInput(editYoutube)) {
+      setEditError(isRoman ? 'YouTube link ya video ID durust nahi.' : 'Please enter a valid YouTube URL or video ID.'); return;
+    }
+    setEditSaving(true); setEditError(null);
+    const result = editingModule
+      ? await CourseService.updateModule(editingModule.id, { title: editTitle.trim(), titleRomanUrdu: editTitleRoman.trim(), description: editDescription.trim() })
+      : editingLesson
+        ? await CourseService.updateLesson(editingLesson.id, { title: editTitle.trim(), titleRomanUrdu: editTitleRoman.trim(), description: editDescription.trim(), youtubeUrlOrId: editYoutube.trim(), durationMinutes: Math.max(1, Number(editDuration) || 1), isFreePreview: editFreePreview })
+        : null;
+    setEditSaving(false);
+    if (!result || result.error) { setEditError(result?.error || (isRoman ? 'Save nahi ho saka.' : 'Unable to save changes.')); return; }
+    setEditingModule(null); setEditingLesson(null);
+    await loadCurriculum();
   };
 
   // Handle Module Delete
@@ -291,6 +336,15 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => startEditModule(mod)}
+                      className="text-xs py-1 px-2.5 text-gray-600 hover:bg-gray-100"
+                    >
+                      <Edit className="w-3.5 h-3.5 mr-1" />
+                      {isRoman ? 'Module Edit Karein' : 'Edit Module'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setActiveModuleForLesson(mod.id)}
                       className="text-xs py-1 px-2.5 text-[#1F3FBF] hover:bg-blue-50 border-blue-200"
                     >
@@ -362,6 +416,15 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
                           </div>
 
                           <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => startEditLesson(lesson)}
+                              className="text-[10px] py-0.5 px-2 text-gray-600 hover:text-[#1F3FBF] h-7"
+                            >
+                              <Edit className="w-3 h-3 mr-0.5" />
+                              {isRoman ? 'Edit' : 'Edit'}
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -731,6 +794,26 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
                   {isRoman ? 'Resource Shamil Karein' : 'Attach Resource'}
                 </Button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Module / Lesson Modal */}
+      {(editingModule || editingLesson) && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-lg w-full p-5 shadow-2xl my-8">
+            <h3 className="text-base font-bold text-[#0F1F5C] mb-4">{editingModule ? (isRoman ? 'Module Edit Karein' : 'Edit Module') : (isRoman ? 'Lecture Edit Karein' : 'Edit Lesson / Lecture')}</h3>
+            {editError && <div role="alert" className="p-2.5 bg-red-50 text-red-700 text-xs rounded mb-3">{editError}</div>}
+            <form onSubmit={handleSaveCurriculumEdit} className="space-y-3">
+              <div><label className="block text-xs font-semibold text-gray-700 mb-1">{editingModule ? 'Module Title (English) *' : 'Lesson Title (English) *'}</label><input autoFocus required value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-xs" /></div>
+              <div><label className="block text-xs font-semibold text-gray-700 mb-1">Title (Roman Urdu)</label><input value={editTitleRoman} onChange={(e) => setEditTitleRoman(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-xs" /></div>
+              <div><label className="block text-xs font-semibold text-gray-700 mb-1">Description</label><textarea rows={3} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-xs" /></div>
+              {editingLesson && <>
+                <div><label className="block text-xs font-semibold text-gray-700 mb-1">YouTube Video Link / ID</label><input value={editYoutube} onChange={(e) => setEditYoutube(e.target.value)} placeholder="https://youtu.be/VIDEO_ID" className="w-full px-3 py-2 border rounded-lg text-xs font-mono" /></div>
+                <div className="grid grid-cols-2 gap-3"><div><label className="block text-xs font-semibold text-gray-700 mb-1">Duration (Minutes)</label><input type="number" min="1" value={editDuration} onChange={(e) => setEditDuration(Number(e.target.value))} className="w-full px-3 py-2 border rounded-lg text-xs" /></div><label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700 pt-5"><input type="checkbox" checked={editFreePreview} onChange={(e) => setEditFreePreview(e.target.checked)} className="w-4 h-4 text-[#1F3FBF] rounded" />Free Preview</label></div>
+              </>}
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100"><Button type="button" variant="outline" size="sm" onClick={() => { setEditingModule(null); setEditingLesson(null); setEditError(null); }}>Cancel</Button><Button type="submit" variant="primary" size="sm" disabled={editSaving} className="bg-[#1F3FBF]">{editSaving ? (isRoman ? 'Save ho raha hai...' : 'Saving...') : (isRoman ? 'Changes Save Karein' : 'Save Changes')}</Button></div>
             </form>
           </div>
         </div>
