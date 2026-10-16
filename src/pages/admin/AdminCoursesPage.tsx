@@ -26,7 +26,10 @@ import {
   Laptop,
 } from 'lucide-react';
 import { CourseCurriculumDrawer } from '../../components/admin/CourseCurriculumDrawer';
+import { CourseImportModal } from '../../components/admin/CourseImportModal';
 import { ImagePreviewField } from '../../components/ui/ImagePreviewField';
+import { AiEnhanceButton } from '../../components/ui/AiEnhanceButton';
+import { useAiEnhance } from '../../hooks/useAiEnhance';
 import { isSafeHttpsUrl } from '../../utils/url';
 
 export const AdminCoursesPage: React.FC = () => {
@@ -39,6 +42,10 @@ export const AdminCoursesPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<CourseStatus | 'all'>('all');
   const [featuredFilter, setFeaturedFilter] = useState<'all' | 'featured'>('all');
+
+  // AI enhance hook for course form fields
+  const courseAi = useAiEnhance();
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Modal / Form state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -311,6 +318,15 @@ export const AdminCoursesPage: React.FC = () => {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             {isRoman ? 'Refresh' : 'Refresh'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center gap-2 border-[#1F3FBF] text-[#1F3FBF] hover:bg-blue-50"
+          >
+            <Sparkles className="w-4 h-4" />
+            {isRoman ? 'AI Import' : 'AI Import'}
           </Button>
           <Button
             variant="primary"
@@ -624,9 +640,18 @@ export const AdminCoursesPage: React.FC = () => {
             <form onSubmit={handleSubmitCourse} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Course Title (English) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-gray-700">Course Title (English) *</label>
+                    <AiEnhanceButton
+                      value={formData.title}
+                      loading={courseAi.loading}
+                      suggestion={courseAi.suggestion}
+                      error={courseAi.error}
+                      onEnhance={() => courseAi.enhance('Course Title', formData.title, 'Academy course listing')}
+                      onAccept={(v) => { setFormData({ ...formData, title: v }); courseAi.dismiss(); }}
+                      onDismiss={courseAi.dismiss}
+                    />
+                  </div>
                   <input
                     type="text"
                     required
@@ -670,9 +695,18 @@ export const AdminCoursesPage: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Short Description (English) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-gray-700">Short Description (English) *</label>
+                    <AiEnhanceButton
+                      value={formData.shortDescription}
+                      loading={courseAi.loading}
+                      suggestion={courseAi.suggestion}
+                      error={courseAi.error}
+                      onEnhance={() => courseAi.enhance('Short Description', formData.shortDescription, `Course: ${formData.title}`)}
+                      onAccept={(v) => { setFormData({ ...formData, shortDescription: v }); courseAi.dismiss(); }}
+                      onDismiss={courseAi.dismiss}
+                    />
+                  </div>
                   <textarea
                     rows={2}
                     required
@@ -905,6 +939,13 @@ export const AdminCoursesPage: React.FC = () => {
             setSelectedCourseForCurriculum(null);
             loadCourses();
           }}
+        />
+      )}
+
+      {isImportModalOpen && (
+        <CourseImportModal
+          onClose={() => setIsImportModalOpen(false)}
+          onImported={loadCourses}
         />
       )}
     </div>

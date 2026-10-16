@@ -19,7 +19,8 @@ export type AdminAiAction =
   | 'improve_text'
   | 'summarize_report'
   | 'draft_support_reply'
-  | 'draft_course_outline';
+  | 'draft_course_outline'
+  | 'enhance_field';
 
 export default async function handler(req: any, res: any, dbClient?: any) {
   if (req.method !== 'POST') {
@@ -122,10 +123,38 @@ Format: Week-by-week module breakdown with clear learning outcomes and practical
         break;
       }
 
+      case 'enhance_field': {
+        const { fieldName, fieldValue, context, language: fieldLang } = payload;
+        if (!fieldValue || !String(fieldValue).trim()) {
+          return res.status(400).json({ ok: false, error: 'fieldValue is required for enhance_field.' });
+        }
+        if (String(fieldValue).length > 2000) {
+          return res.status(400).json({ ok: false, error: 'fieldValue must be under 2000 characters.' });
+        }
+        userPrompt = `You are enhancing a single form field for an online academy admin panel.
+
+Field: ${fieldName || 'description'}
+Context: ${context || 'Course management form for The Inspire Business Academy'}
+Language preference: ${fieldLang || 'same as input'}
+
+Original text:
+"""
+${fieldValue}
+"""
+
+Instructions:
+- Fix spelling, grammar, and punctuation
+- Make it more professional, clear, and engaging
+- Keep the original meaning — do NOT add fake claims or invented details
+- Keep it concise (do not expand beyond 2x original length)
+- Return ONLY the improved text with no preamble, no explanation, no quotes`;
+        break;
+      }
+
       default:
         return res.status(400).json({
           ok: false,
-          error: `Unsupported AI action: "${action}". Supported actions: draft_content, improve_text, summarize_report, draft_support_reply, draft_course_outline.`,
+          error: `Unsupported AI action: "${action}". Supported actions: draft_content, improve_text, summarize_report, draft_support_reply, draft_course_outline, enhance_field.`,
         });
     }
 

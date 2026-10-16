@@ -11,6 +11,8 @@ import {
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Spinner } from '../ui/Spinner';
+import { AiEnhanceButton } from '../ui/AiEnhanceButton';
+import { useAiEnhance } from '../../hooks/useAiEnhance';
 import {
   X,
   Plus,
@@ -45,6 +47,10 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
 
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // AI Enhance hooks — one per form context
+  const moduleAi = useAiEnhance();
+  const lessonAi = useAiEnhance();
 
   // Module creation modal
   const [isModuleModalOpen, setIsModuleModalOpen] = useState(false);
@@ -448,9 +454,20 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
             </h3>
             <form onSubmit={handleCreateModule} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Module Title (English) *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Module Title (English) *
+                  </label>
+                  <AiEnhanceButton
+                    value={moduleTitle}
+                    loading={moduleAi.loading}
+                    suggestion={moduleAi.suggestion}
+                    error={moduleAi.error}
+                    onEnhance={() => moduleAi.enhance('Module Title', moduleTitle, `Course: ${course.title}`)}
+                    onAccept={(v) => { setModuleTitle(v); moduleAi.dismiss(); }}
+                    onDismiss={moduleAi.dismiss}
+                  />
+                </div>
                 <input
                   type="text"
                   required
@@ -473,9 +490,18 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Description
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-gray-700">Description</label>
+                  <AiEnhanceButton
+                    value={moduleDesc}
+                    loading={moduleAi.loading}
+                    suggestion={moduleAi.suggestion}
+                    error={moduleAi.error}
+                    onEnhance={() => moduleAi.enhance('Module Description', moduleDesc, `Course: ${course.title}, Module: ${moduleTitle}`)}
+                    onAccept={(v) => { setModuleDesc(v); moduleAi.dismiss(); }}
+                    onDismiss={moduleAi.dismiss}
+                  />
+                </div>
                 <textarea
                   rows={2}
                   value={moduleDesc}
@@ -522,9 +548,20 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
 
             <form onSubmit={handleCreateLesson} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Lesson Title (English) *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Lesson Title (English) *
+                  </label>
+                  <AiEnhanceButton
+                    value={lessonTitle}
+                    loading={lessonAi.loading}
+                    suggestion={lessonAi.suggestion}
+                    error={lessonAi.error}
+                    onEnhance={() => lessonAi.enhance('Lesson Title', lessonTitle, `Course: ${course.title}`)}
+                    onAccept={(v) => { setLessonTitle(v); lessonAi.dismiss(); }}
+                    onDismiss={lessonAi.dismiss}
+                  />
+                </div>
                 <input
                   type="text"
                   required
