@@ -345,7 +345,7 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setActiveModuleForLesson(mod.id)
+                      onClick={() => setActiveModuleForLesson(mod.id)}
                       className="text-xs py-1 px-2.5 text-[#1F3FBF] hover:bg-blue-50 border-blue-200"
                     >
                       <Plus className="w-3.5 h-3.5 mr-1" />
@@ -428,7 +428,7 @@ export const CourseCurriculumDrawer: React.FC<Props> = ({ course, onClose }) => 
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setActiveLessonForResource(lesson.id)
+                              onClick={() => setActiveLessonForResource(lesson.id)}
                               className="text-[10px] py-0.5 px-2 text-gray-600 hover:text-[#1F3FBF] h-7"
                             >
                               <Plus className="w-3 h-3 mr-0.5" />
