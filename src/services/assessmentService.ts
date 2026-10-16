@@ -272,6 +272,27 @@ export const AssessmentService = {
     return newQ;
   },
 
+  async updateQuestion(id: string, payload: Partial<QuestionBankItem>): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const updateData: any = { updated_at: new Date().toISOString() };
+      if (payload.questionTextEn !== undefined) updateData.question_text_en = payload.questionTextEn;
+      if (payload.questionTextRoman !== undefined) updateData.question_text_roman = payload.questionTextRoman;
+      if (payload.questionType !== undefined) updateData.question_type = payload.questionType;
+      if (payload.options !== undefined) updateData.options = payload.options;
+      if (payload.correctOptionId !== undefined) updateData.correct_option_id = payload.correctOptionId;
+      if (payload.explanationEn !== undefined) updateData.explanation_en = payload.explanationEn;
+      if (payload.explanationRoman !== undefined) updateData.explanation_roman = payload.explanationRoman;
+      if (payload.marks !== undefined) updateData.marks = payload.marks;
+      if (payload.displayOrder !== undefined) updateData.display_order = payload.displayOrder;
+      if (payload.isActive !== undefined) updateData.is_active = payload.isActive;
+      const { error } = await supabase.from('quiz_questions').update(updateData).eq('id', id);
+      if (error) throw new Error(error.message);
+      return;
+    }
+    const idx = fallbackQuestionsStore.findIndex((q) => q.id === id);
+    if (idx !== -1) fallbackQuestionsStore[idx] = { ...fallbackQuestionsStore[idx], ...payload, updatedAt: new Date().toISOString() };
+  },
+
   async deleteQuestion(id: string): Promise<void> {
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.from('quiz_questions').delete().eq('id', id);
