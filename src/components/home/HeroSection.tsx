@@ -53,7 +53,7 @@ export const HeroSection: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           {/* Hero Left Box (Physical Students Package) on desktop (order-1, lg:col-span-5), stacked below hero text on mobile (order-2) */}
           <div className="order-2 lg:order-1 lg:col-span-5">
-            <Card elevated bordered className="border-2 border-[#1F3FBF]/20 bg-white overflow-hidden shadow-lg">
+            <Card elevated bordered className="public-hero-card border-2 border-[#1F3FBF]/20 bg-white overflow-hidden shadow-lg">
               {/* Image home_class_image_url (teacher lecturing students) */}
               {homeClassImage && (
                 <div className="w-full h-44 overflow-hidden border-b border-slate-200/80 bg-slate-100">
@@ -120,7 +120,7 @@ export const HeroSection: React.FC = () => {
           <div className="order-1 lg:order-2 lg:col-span-7 space-y-6 text-left">
             <div className="inline-flex items-center gap-2">
               <Badge variant="accent" size="md">
-                <Sparkles className="w-3.5 h-3.5 text-[#0F1F5C]" />
+                <Sparkles className="public-hero-sparkle w-3.5 h-3.5 text-[#0F1F5C]" />
                 <span>{siteConfig.mission}</span>
               </Badge>
               <Badge variant="secondary" size="md">
