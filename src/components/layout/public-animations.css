@@ -187,8 +187,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .public-motion > div > section {
-    animation: none;
+  .public-motion > div > section,
+  .public-motion section {
+    animation: none !important;
   }
 
   .public-motion a:not(.sr-only),
@@ -198,6 +199,11 @@
   .public-motion [class*="rounded-xl"][class*="bg-white"],
   .public-motion [class*="rounded-2xl"][class*="bg-white"],
   .public-motion article,
+  .public-motion .public-hero-card,
+  .public-motion .public-hero-sparkle,
+  .public-motion a[class*="bg-"],
+  .public-motion button[class*="bg-"],
+  .public-motion [role="button"][class*="bg-"],
   .public-site header,
   .public-site header nav a,
   .public-site footer a {
