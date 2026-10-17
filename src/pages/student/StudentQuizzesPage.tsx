@@ -160,7 +160,7 @@ export const StudentQuizzesPage: React.FC = () => {
                             : 'border-slate-100'
                         }`}
                       >
-                        {o.textRoman || o.textEn}
+                        {isRoman ? o.textRoman || o.textEn : o.textEn || o.textRoman}
                       </div>
                     ))}
                   </div>
@@ -175,9 +175,9 @@ export const StudentQuizzesPage: React.FC = () => {
               {questions.map((q, i) => (
                 <div key={q.id} className="p-4 bg-white border border-slate-200 rounded-xl space-y-2">
                   <p className="text-sm font-bold text-slate-800">
-                    {i + 1}. {q.textRoman || q.textEn}
+                    {i + 1}. {isRoman ? q.textRoman || q.textEn : q.textEn || q.textRoman}
                   </p>
-                  {q.textEn && q.textRoman && <p className="text-[11px] text-slate-400">{q.textEn}</p>}
+                  
                   <div className="space-y-1.5">
                     {q.options.map((o: any) => (
                       <button
@@ -190,7 +190,7 @@ export const StudentQuizzesPage: React.FC = () => {
                             : 'border-slate-200 hover:border-slate-300'
                         }`}
                       >
-                        {o.textRoman || o.textEn}
+                        {isRoman ? o.textRoman || o.textEn : o.textEn || o.textRoman}
                       </button>
                     ))}
                   </div>

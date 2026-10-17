@@ -359,11 +359,11 @@ export const StudentFinalExamPage: React.FC = () => {
                     </span>
                     <div className="flex-1">
                       <p className="text-sm font-bold text-slate-900 leading-snug">
-                        {q.questionTextRoman || q.questionTextEn}
+                        {isRoman ? q.questionTextRoman || q.questionTextEn : q.questionTextEn || q.questionTextRoman}
                       </p>
                       {q.questionTextEn && q.questionTextRoman && (
                         <p className="text-xs text-slate-500 mt-1 italic">
-                          {q.questionTextEn}
+                          {isRoman ? q.questionTextRoman || q.questionTextEn : q.questionTextEn || q.questionTextRoman}
                         </p>
                       )}
                     </div>
@@ -395,7 +395,7 @@ export const StudentFinalExamPage: React.FC = () => {
                           >
                             {isSelected ? '✓' : ''}
                           </span>
-                          <span>{opt.textRoman || opt.textEn}</span>
+                          <span>{isRoman ? opt.textRoman || opt.textEn : opt.textEn || opt.textRoman}</span>
                         </button>
                       );
                     })}
