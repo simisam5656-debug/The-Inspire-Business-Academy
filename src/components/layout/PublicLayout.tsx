@@ -4,10 +4,11 @@ import { Header } from './Header';
 import { Footer } from './Footer';
 import { WhatsAppFloat } from './WhatsAppFloat';
 import { AcademyChatbot } from '../chat/AcademyChatbot';
+import './public-animations.css';
 
 export const PublicLayout: React.FC = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-[#F2F5FF] text-[#0F1F5C] antialiased">
+    <div className="public-site min-h-screen flex flex-col bg-[#F2F5FF] text-[#0F1F5C] antialiased">
       {/* Accessible Skip Link for screen readers & keyboard navigation */}
       <a
         href="#main-content"
@@ -20,7 +21,7 @@ export const PublicLayout: React.FC = () => {
       <Header />
 
       {/* Main Content Area */}
-      <main id="main-content" className="flex-1 w-full focus:outline-none" tabIndex={-1}>
+      <main id="main-content" className="public-motion flex-1 w-full focus:outline-none" tabIndex={-1}>
         <Outlet />
       </main>
 
