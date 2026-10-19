@@ -250,9 +250,10 @@ export const OnlineJoinPage: React.FC = () => {
 
     try {
       setCalculatingPrice(true);
+      const isStudentPackage = cSlug === 'student-discount-package';
       const res = await PaymentService.calculateAuthoritativePrice(
-        cSlug,
-        undefined,
+        isStudentPackage ? undefined : cSlug,
+        isStudentPackage ? 'student-discount-package' : undefined,
         cCode || couponCode,
         user?.id
       );
@@ -461,7 +462,8 @@ export const OnlineJoinPage: React.FC = () => {
       }
     }
 
-    const chosenCourseTitle = selectedCourse?.title || selectedCourseSlug;
+    const isStudentPackage = selectedCourseSlug === 'student-discount-package';
+    const chosenCourseTitle = isStudentPackage ? 'Student Discount Package' : (selectedCourse?.title || selectedCourseSlug);
 
     try {
       setIsSubmitting(true);
@@ -494,7 +496,8 @@ export const OnlineJoinPage: React.FC = () => {
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
         city: city.trim() || 'Online Student',
-        courseSlug: selectedCourseSlug,
+        courseSlug: isStudentPackage ? undefined : selectedCourseSlug,
+        packageSlug: isStudentPackage ? 'student-discount-package' : undefined,
         courseTitle: chosenCourseTitle,
         paymentMethod: selectedMethod,
         transactionId: transactionId.trim().toUpperCase(),
@@ -532,7 +535,9 @@ export const OnlineJoinPage: React.FC = () => {
     }
   };
 
-  const courseOptions = onlineCourses.map((c) => {
+  const courseOptions = [
+    { value: 'student-discount-package', label: isRoman ? 'NEW OFFER — Student Discount Package (Rs. 4,000; 60% OFF)' : 'NEW OFFER — Student Discount Package (Rs. 4,000; 60% OFF)' },
+    ...onlineCourses.map((c) => {
     const pr = (c as any).onlinePrice ?? (c as any).online_price ?? c.price ?? 0;
     const dur = (c as any).onlineDurationMonths ?? (c as any).online_duration_months ?? c.durationValue ?? 6;
     return {
@@ -541,7 +546,7 @@ export const OnlineJoinPage: React.FC = () => {
         ? `${c.titleRomanUrdu || c.title} (Rs. ${Number(pr ?? 0).toLocaleString()} / ${dur} Mah Access)`
         : `${c.title} (Rs. ${Number(pr ?? 0).toLocaleString()} / ${dur}-Month Access)`,
     };
-  });
+  })];
 
   return (
     <div className="w-full">
