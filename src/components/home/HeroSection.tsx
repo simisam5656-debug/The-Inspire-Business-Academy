@@ -50,6 +50,31 @@ export const HeroSection: React.FC = () => {
   return (
     <Section variant="light" spacing="lg" className="border-b border-[#1F3FBF]/10 relative overflow-hidden">
       <Container size="lg">
+        {/* Student Discount Package offer is the first and most prominent item in the hero. */}
+        <div className="mb-8">
+          <Link to="/join/online" aria-label="Enroll in the Student Discount Package" className="block">
+            <img
+              src="/images/student-discount-package.svg"
+              alt="NEW OFFER: Student Discount Package. AI Earnings Course and AI Web & Android App Development, original Rs. 10,000, 60% off, now Rs. 4,000. Save Rs. 6,000."
+              className="w-full h-auto rounded-2xl shadow-xl border border-[#F4B41A]/30"
+              loading="eager"
+              fetchPriority="high"
+              width="1200"
+              height="650"
+            />
+          </Link>
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-[#1F3FBF]/15 bg-white p-3 sm:p-4">
+              <h3 className="font-bold text-[#0F1F5C]">AI Earnings Course</h3>
+              <p className="mt-1 text-sm text-slate-600">Individual fee: Rs. 5,000</p>
+            </div>
+            <div className="rounded-xl border border-[#1F3FBF]/15 bg-white p-3 sm:p-4">
+              <h3 className="font-bold text-[#0F1F5C]">AI Web &amp; Android App Development</h3>
+              <p className="mt-1 text-sm text-slate-600">Individual fee: Rs. 5,000</p>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           {/* Hero Left Box (Physical Students Package) on desktop (order-1, lg:col-span-5), stacked below hero text on mobile (order-2) */}
           <div className="order-2 lg:order-1 lg:col-span-5">
