@@ -14,7 +14,7 @@ export interface SubmitPaymentPayload {
   email: string;
   phone: string;
   city?: string;
-  courseSlug: string;
+  courseSlug?: string;
   courseTitle: string;
   paymentMethod: string;
   transactionId: string;

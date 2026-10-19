@@ -41,7 +41,15 @@ export const FeaturedCoursesSection: React.FC = () => {
         setCourses([]);
       } else {
         const list = data || [];
+        const prioritySlugs = ['ai-earnings-course', 'ai-web-development'];
         const sorted = [...list].sort((a, b) => {
+          const aPriority = prioritySlugs.indexOf(a.slug);
+          const bPriority = prioritySlugs.indexOf(b.slug);
+          if (aPriority !== -1 || bPriority !== -1) {
+            if (aPriority === -1) return 1;
+            if (bPriority === -1) return -1;
+            return aPriority - bPriority;
+          }
           if (a.isMostPopular && !b.isMostPopular) return -1;
           if (!a.isMostPopular && b.isMostPopular) return 1;
           return a.displayOrder - b.displayOrder;

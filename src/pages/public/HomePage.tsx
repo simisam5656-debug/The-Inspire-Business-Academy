@@ -16,6 +16,7 @@ import { SectionHeading } from '../../components/ui/SectionHeading';
 import { FAQAccordion } from '../../components/faq/FAQAccordion';
 import { useTranslation } from '../../i18n';
 import { siteConfig } from '../../config/site';
+import { Link } from 'react-router-dom';
 
 export const HomePage: React.FC = () => {
   const { language } = useTranslation();
