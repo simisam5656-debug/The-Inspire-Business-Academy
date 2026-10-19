@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+<title id="title">Student Discount Package — 60% off</title>
+<desc id="desc">AI Earnings Course and AI Web and Android App Development together for Rs. 4,000, saving Rs. 6,000.</desc>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#08143d"/><stop offset="1" stop-color="#182f76"/></linearGradient><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe58a"/><stop offset="1" stop-color="#f4ad19"/></linearGradient></defs>
+<rect width="1200" height="650" rx="32" fill="url(#bg)"/><circle cx="1080" cy="80" r="210" fill="#fff" opacity=".04"/><circle cx="80" cy="590" r="190" fill="#fff" opacity=".035"/>
+<path d="M0 520 Q260 410 490 650 H0Z" fill="#f5bd3a" opacity=".09"/>
+<rect x="58" y="48" width="235" height="48" rx="24" fill="url(#gold)"/><text x="175" y="79" font-family="Arial,sans-serif" font-size="22" font-weight="800" text-anchor="middle" fill="#09143c" letter-spacing="2">✦ NEW OFFER</text>
+<text x="60" y="154" font-family="Arial,sans-serif" font-size="28" fill="#dbe5ff" letter-spacing="4">THE INSPIRE BUSINESS ACADEMY</text>
+<text x="60" y="225" font-family="Arial,sans-serif" font-size="58" font-weight="800" fill="#fff">STUDENT DISCOUNT</text><text x="60" y="290" font-family="Arial,sans-serif" font-size="58" font-weight="800" fill="#fff">PACKAGE</text>
+<rect x="60" y="325" width="505" height="3" rx="2" fill="url(#gold)"/>
+<circle cx="78" cy="375" r="7" fill="#ffd35b"/><text x="101" y="384" font-family="Arial,sans-serif" font-size="27" fill="#fff">AI Earnings Course</text>
+<circle cx="78" cy="423" r="7" fill="#ffd35b"/><text x="101" y="432" font-family="Arial,sans-serif" font-size="25" fill="#fff">AI Web &amp; Android App Development</text>
+<text x="60" y="504" font-family="Arial,sans-serif" font-size="23" fill="#cbd7f7">Original price</text><text x="60" y="550" font-family="Arial,sans-serif" font-size="37" font-weight="700" fill="#aab7d8">Rs. 10,000</text><path d="M57 526 L275 526" stroke="#ffb9a8" stroke-width="5" stroke-linecap="round"/>
+<rect x="700" y="120" width="435" height="410" rx="28" fill="#fff" opacity=".07" stroke="#f7c54b" stroke-width="2"/>
+<rect x="745" y="155" width="180" height="54" rx="27" fill="url(#gold)"/><text x="835" y="191" font-family="Arial,sans-serif" font-size="25" font-weight="900" fill="#0a1744" text-anchor="middle">60% OFF</text>
+<text x="744" y="286" font-family="Arial,sans-serif" font-size="25" fill="#dbe5ff">BOTH COURSES FOR</text><text x="735" y="377" font-family="Arial,sans-serif" font-size="82" font-weight="900" fill="#ffe17a">Rs. 4,000</text>
+<text x="746" y="431" font-family="Arial,sans-serif" font-size="26" font-weight="700" fill="#fff">YOU SAVE Rs. 6,000</text>
+<rect x="744" y="462" width="340" height="50" rx="25" fill="url(#gold)"/><text x="914" y="494" font-family="Arial,sans-serif" font-size="20" font-weight="900" fill="#0a1744" text-anchor="middle">ENROLL NOW</text>
+<text x="60" y="612" font-family="Arial,sans-serif" font-size="18" fill="#bdc9e8">Practical skills • One student-friendly package • Online course access after payment verification</text>
+</svg>
