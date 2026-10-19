@@ -298,7 +298,7 @@ export const OnlineJoinPage: React.FC = () => {
     } catch (e) {
       console.warn('Error fetching pricing:', e);
       const found = onlineCourses.find((c) => c.slug === cSlug);
-      const fallbackPrice = (found as any)?.onlinePrice ?? (found as any)?.online_price ?? found?.price ?? 0;
+      const fallbackPrice = cSlug === 'student-discount-package' ? 4000 : ((found as any)?.onlinePrice ?? (found as any)?.online_price ?? found?.price ?? 0);
       setPricing({
         basePrice: fallbackPrice,
         totalDiscount: 0,
