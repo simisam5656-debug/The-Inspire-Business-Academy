@@ -86,6 +86,8 @@ export const OnlineJoinPage: React.FC = () => {
   );
   const [coursesLoading, setCoursesLoading] = useState(isSupabaseConfigured);
   const [coursesError, setCoursesError] = useState<string | null>(null);
+  const [coursePickerOpen, setCoursePickerOpen] = useState(false);
+  const [courseSearch, setCourseSearch] = useState('');
   const [selectedCourseSlug, setSelectedCourseSlug] = useState<string>(
     isSupabaseConfigured ? '' : (OFFICIAL_COURSES[0]?.slug || '')
   );
@@ -268,16 +270,9 @@ export const OnlineJoinPage: React.FC = () => {
         });
         setPriceLoaded(true);
       } else {
-        const found = onlineCourses.find((c) => c.slug === cSlug);
-        const fallbackPrice = cSlug === 'student-discount-package' ? 4000 : ((found as any)?.onlinePrice ?? (found as any)?.online_price ?? found?.price ?? 0);
-        setPricing({
-          basePrice: fallbackPrice,
-          totalDiscount: 0,
-          finalAmount: fallbackPrice,
-          offer: null,
-          coupon: null,
-        });
-        setPriceLoaded(true);
+        setPricing({ basePrice: 0, totalDiscount: 0, finalAmount: 0, offer: null, coupon: null });
+        setPriceLoaded(false);
+        setCouponFeedback({ text: isRoman ? 'Fee database se verify nahin ho saki. Dobara koshish karein.' : 'Could not verify the fee from the database. Please try again.', isError: true });
       }
 
       if (cCode) {
@@ -297,16 +292,9 @@ export const OnlineJoinPage: React.FC = () => {
       }
     } catch (e) {
       console.warn('Error fetching pricing:', e);
-      const found = onlineCourses.find((c) => c.slug === cSlug);
-      const fallbackPrice = cSlug === 'student-discount-package' ? 4000 : ((found as any)?.onlinePrice ?? (found as any)?.online_price ?? found?.price ?? 0);
-      setPricing({
-        basePrice: fallbackPrice,
-        totalDiscount: 0,
-        finalAmount: fallbackPrice,
-        offer: null,
-        coupon: null,
-      });
-      setPriceLoaded(true);
+      setPricing({ basePrice: 0, totalDiscount: 0, finalAmount: 0, offer: null, coupon: null });
+      setPriceLoaded(false);
+      setCouponFeedback({ text: isRoman ? 'Fee database se verify nahin ho saki. Dobara koshish karein.' : 'Could not verify the fee from the database. Please try again.', isError: true });
     } finally {
       setCalculatingPrice(false);
     }
@@ -733,20 +721,23 @@ export const OnlineJoinPage: React.FC = () => {
 
                     {/* Step 1: Course Selection */}
                     <div>
-                      <h3 className="text-sm font-bold text-[#0F1F5C] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-[#1F3FBF] text-white text-[10px] flex items-center justify-center font-bold">
-                          1
-                        </span>
-                        {isRoman ? 'Course Ka Intikhab' : 'Select Online Course'}
-                      </h3>
-                      <Select
-                        label={isRoman ? 'Kis Course Mein Dakhla Lena Hai?' : 'Choose Program'}
-                        options={courseOptions}
-                        value={selectedCourseSlug}
-                        onChange={(e) => setSelectedCourseSlug(e.target.value)}
-                        disabled={isFormDisabled || isSubmitting}
-                        required
-                      />
+                      <h3 className="text-sm font-bold text-[#0F1F5C] uppercase tracking-wider mb-2 flex items-center gap-1.5"><span className="w-5 h-5 rounded-full bg-[#1F3FBF] text-white text-[10px] flex items-center justify-center font-bold">1</span>{isRoman ? 'Course Ka Intikhab' : 'Select Online Course'}</h3>
+                      <label className="block text-xs font-semibold text-[#0F1F5C] mb-1.5">{isRoman ? 'Kis Course Mein Dakhla Lena Hai?' : 'Choose Program'} <span className="text-rose-600">*</span></label>
+                      <div className="relative">
+                        <button type="button" aria-haspopup="listbox" aria-expanded={coursePickerOpen} disabled={isFormDisabled || isSubmitting} onClick={() => { setCoursePickerOpen((open) => !open); setCourseSearch(''); }} className="w-full min-h-[48px] rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-left shadow-sm flex items-center justify-between gap-3 focus:outline-none focus:ring-2 focus:ring-[#1F3FBF]/25 focus:border-[#1F3FBF] disabled:opacity-60">
+                          <span className="min-w-0"><span className="block truncate text-sm font-semibold text-[#0F1F5C]">{courseOptions.find((o) => o.value === selectedCourseSlug)?.label || (isRoman ? 'Course select karein' : 'Select a course')}</span>{selectedCourseSlug === 'student-discount-package' && <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-900">✦ NEW OFFER · Rs. 4,000 · 60% OFF</span>}</span>
+                          <span className="text-[#1F3FBF] text-lg" aria-hidden="true">{coursePickerOpen ? '⌃' : '⌄'}</span>
+                        </button>
+                        {coursePickerOpen && <div className="absolute z-40 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+                          <div className="border-b border-slate-100 p-2.5"><input type="search" value={courseSearch} onChange={(e) => setCourseSearch(e.target.value)} placeholder={isRoman ? 'Course search karein...' : 'Search courses...'} autoComplete="off" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1F3FBF] focus:ring-2 focus:ring-[#1F3FBF]/15" /></div>
+                          <div role="listbox" aria-label={isRoman ? 'Dastiyab courses' : 'Available courses'} className="max-h-64 overflow-y-auto p-1.5">
+                            {courseOptions.filter((o) => o.label.toLowerCase().includes(courseSearch.trim().toLowerCase())).map((option) => <button type="button" role="option" aria-selected={selectedCourseSlug === option.value} key={option.value} onClick={() => { setSelectedCourseSlug(option.value); setCoursePickerOpen(false); setCourseSearch(''); }} className={`mb-1 w-full rounded-lg px-3 py-2.5 text-left transition-colors last:mb-0 ${selectedCourseSlug === option.value ? 'border border-[#1F3FBF]/20 bg-[#EEF2FF]' : 'hover:bg-slate-50'}`}>
+                              <span className="flex items-start justify-between gap-2"><span className="text-sm font-medium leading-snug text-slate-800">{option.label}</span>{selectedCourseSlug === option.value && <span className="font-bold text-[#1F3FBF]" aria-hidden="true">✓</span>}</span>{option.value === 'student-discount-package' && <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">NEW OFFER · SAVE Rs. 6,000</span>}
+                            </button>)}
+                            {courseOptions.filter((o) => o.label.toLowerCase().includes(courseSearch.trim().toLowerCase())).length === 0 && <p className="px-3 py-5 text-center text-sm text-slate-500">{isRoman ? 'Koi course nahin mila.' : 'No courses found.'}</p>}
+                          </div>
+                        </div>}
+                      </div><input type="hidden" name="courseSlug" value={selectedCourseSlug} required />
                     </div>
 
                     {/* Step 2: Personal Information */}
